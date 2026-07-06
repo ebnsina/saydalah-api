@@ -16,6 +16,18 @@ WHERE branch_id = $1 AND created_at >= sqlc.arg('from') AND created_at < sqlc.ar
 GROUP BY day
 ORDER BY day;
 
+-- name: SalesByPayment :many
+SELECT
+    payment_method,
+    count(*)::bigint                 AS sale_count,
+    COALESCE(SUM(total), 0)::numeric AS revenue
+FROM sales
+WHERE branch_id = $1
+  AND created_at >= sqlc.arg('from') AND created_at < sqlc.arg('to')
+  AND voided_at IS NULL
+GROUP BY payment_method
+ORDER BY revenue DESC;
+
 -- name: InventoryValuation :one
 SELECT
     COALESCE(SUM(quantity), 0)::bigint               AS total_units,

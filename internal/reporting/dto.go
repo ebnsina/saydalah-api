@@ -33,6 +33,13 @@ type DailySales struct {
 	Revenue   decimal.Decimal `json:"revenue"`
 }
 
+// PaymentBreakdown is one payment method's totals over a range.
+type PaymentBreakdown struct {
+	PaymentMethod string          `json:"payment_method"`
+	SaleCount     int64           `json:"sale_count"`
+	Revenue       decimal.Decimal `json:"revenue"`
+}
+
 // InventoryValuationResponse values current stock at cost and retail.
 type InventoryValuationResponse struct {
 	TotalUnits  int64           `json:"total_units"`

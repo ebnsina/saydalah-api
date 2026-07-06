@@ -62,6 +62,31 @@ func (s *Service) SalesDaily(ctx context.Context, id auth.Identity, branch *uuid
 	return out, nil
 }
 
+// SalesByPayment breaks completed sales down by payment method over the range.
+func (s *Service) SalesByPayment(ctx context.Context, id auth.Identity, branch *uuid.UUID, rng DateRange) ([]PaymentBreakdown, error) {
+	branchID, err := id.ResolveBranch(branch)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.repo.SalesByPayment(ctx, store.SalesByPaymentParams{
+		BranchID: branchID,
+		From:     rng.From,
+		To:       rng.To,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("reporting: sales by payment: %w", err)
+	}
+	out := make([]PaymentBreakdown, len(rows))
+	for i, row := range rows {
+		out[i] = PaymentBreakdown{
+			PaymentMethod: string(row.PaymentMethod),
+			SaleCount:     row.SaleCount,
+			Revenue:       row.Revenue,
+		}
+	}
+	return out, nil
+}
+
 // InventoryValuation values a branch's current stock at cost and retail.
 func (s *Service) InventoryValuation(ctx context.Context, id auth.Identity, branch *uuid.UUID) (InventoryValuationResponse, error) {
 	branchID, err := id.ResolveBranch(branch)

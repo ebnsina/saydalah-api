@@ -12,6 +12,7 @@ import (
 type Repository interface {
 	SalesSummary(ctx context.Context, arg store.SalesSummaryParams) (store.SalesSummaryRow, error)
 	SalesDaily(ctx context.Context, arg store.SalesDailyParams) ([]store.SalesDailyRow, error)
+	SalesByPayment(ctx context.Context, arg store.SalesByPaymentParams) ([]store.SalesByPaymentRow, error)
 	InventoryValuation(ctx context.Context, branchID uuid.UUID) (store.InventoryValuationRow, error)
 	TopSelling(ctx context.Context, arg store.TopSellingProductsParams) ([]store.TopSellingProductsRow, error)
 }
@@ -27,6 +28,10 @@ func (r *storeRepository) SalesSummary(ctx context.Context, arg store.SalesSumma
 
 func (r *storeRepository) SalesDaily(ctx context.Context, arg store.SalesDailyParams) ([]store.SalesDailyRow, error) {
 	return r.q.SalesDaily(ctx, arg)
+}
+
+func (r *storeRepository) SalesByPayment(ctx context.Context, arg store.SalesByPaymentParams) ([]store.SalesByPaymentRow, error) {
+	return r.q.SalesByPayment(ctx, arg)
 }
 
 func (r *storeRepository) InventoryValuation(ctx context.Context, branchID uuid.UUID) (store.InventoryValuationRow, error) {

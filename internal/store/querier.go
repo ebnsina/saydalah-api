@@ -97,6 +97,7 @@ type Querier interface {
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
 	// Revoke every active token for a user (logout-all, or reuse detection).
 	RevokeUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
+	SalesByPayment(ctx context.Context, arg SalesByPaymentParams) ([]SalesByPaymentRow, error)
 	SalesDaily(ctx context.Context, arg SalesDailyParams) ([]SalesDailyRow, error)
 	SalesSummary(ctx context.Context, arg SalesSummaryParams) (SalesSummaryRow, error)
 	// Set a batch to an absolute counted quantity (physical stock-take), locking the

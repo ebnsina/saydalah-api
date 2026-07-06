@@ -46,6 +46,20 @@ func (h *Handler) salesDaily(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
+func (h *Handler) salesByPayment(w http.ResponseWriter, r *http.Request) {
+	id, ok := auth.IdentityFrom(r.Context())
+	if !ok {
+		httpx.Error(w, r, httpx.ErrUnauthorized)
+		return
+	}
+	items, err := h.svc.SalesByPayment(r.Context(), id, optionalBranch(r), parseRange(r))
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
 func (h *Handler) inventoryValuation(w http.ResponseWriter, r *http.Request) {
 	id, ok := auth.IdentityFrom(r.Context())
 	if !ok {

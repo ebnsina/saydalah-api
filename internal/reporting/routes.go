@@ -23,6 +23,7 @@ func (m *Module) Mount(r chi.Router) {
 		r.Use(middleware.RequireRole(store.UserRoleManager))
 		r.Get("/sales-summary", m.handler.salesSummary)
 		r.Get("/sales-daily", m.handler.salesDaily)
+		r.Get("/sales-by-payment", m.handler.salesByPayment)
 		r.Get("/inventory-valuation", m.handler.inventoryValuation)
 		r.Get("/top-products", m.handler.topProducts)
 	})

@@ -35,6 +35,51 @@ func (q *Queries) InventoryValuation(ctx context.Context, branchID uuid.UUID) (I
 	return i, err
 }
 
+const salesByPayment = `-- name: SalesByPayment :many
+SELECT
+    payment_method,
+    count(*)::bigint                 AS sale_count,
+    COALESCE(SUM(total), 0)::numeric AS revenue
+FROM sales
+WHERE branch_id = $1
+  AND created_at >= $2 AND created_at < $3
+  AND voided_at IS NULL
+GROUP BY payment_method
+ORDER BY revenue DESC
+`
+
+type SalesByPaymentParams struct {
+	BranchID uuid.UUID `json:"branch_id"`
+	From     time.Time `json:"from"`
+	To       time.Time `json:"to"`
+}
+
+type SalesByPaymentRow struct {
+	PaymentMethod PaymentMethod   `json:"payment_method"`
+	SaleCount     int64           `json:"sale_count"`
+	Revenue       decimal.Decimal `json:"revenue"`
+}
+
+func (q *Queries) SalesByPayment(ctx context.Context, arg SalesByPaymentParams) ([]SalesByPaymentRow, error) {
+	rows, err := q.db.Query(ctx, salesByPayment, arg.BranchID, arg.From, arg.To)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SalesByPaymentRow{}
+	for rows.Next() {
+		var i SalesByPaymentRow
+		if err := rows.Scan(&i.PaymentMethod, &i.SaleCount, &i.Revenue); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const salesDaily = `-- name: SalesDaily :many
 SELECT
     (date_trunc('day', created_at))::date AS day,
