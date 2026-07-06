@@ -126,10 +126,14 @@ func (q *Queries) SalesDaily(ctx context.Context, arg SalesDailyParams) ([]Sales
 const salesSummary = `-- name: SalesSummary :one
 SELECT
     count(*)::bigint                    AS sale_count,
-    COALESCE(SUM(total), 0)::numeric    AS revenue,
-    COALESCE(SUM(discount), 0)::numeric AS discount_total
+    COALESCE(SUM(subtotal), 0)::numeric AS subtotal_total,
+    COALESCE(SUM(discount), 0)::numeric AS discount_total,
+    COALESCE(SUM(tax), 0)::numeric      AS tax_total,
+    COALESCE(SUM(total), 0)::numeric    AS revenue
 FROM sales
-WHERE branch_id = $1 AND created_at >= $2 AND created_at < $3
+WHERE branch_id = $1
+  AND created_at >= $2 AND created_at < $3
+  AND voided_at IS NULL
 `
 
 type SalesSummaryParams struct {
@@ -140,14 +144,22 @@ type SalesSummaryParams struct {
 
 type SalesSummaryRow struct {
 	SaleCount     int64           `json:"sale_count"`
-	Revenue       decimal.Decimal `json:"revenue"`
+	SubtotalTotal decimal.Decimal `json:"subtotal_total"`
 	DiscountTotal decimal.Decimal `json:"discount_total"`
+	TaxTotal      decimal.Decimal `json:"tax_total"`
+	Revenue       decimal.Decimal `json:"revenue"`
 }
 
 func (q *Queries) SalesSummary(ctx context.Context, arg SalesSummaryParams) (SalesSummaryRow, error) {
 	row := q.db.QueryRow(ctx, salesSummary, arg.BranchID, arg.From, arg.To)
 	var i SalesSummaryRow
-	err := row.Scan(&i.SaleCount, &i.Revenue, &i.DiscountTotal)
+	err := row.Scan(
+		&i.SaleCount,
+		&i.SubtotalTotal,
+		&i.DiscountTotal,
+		&i.TaxTotal,
+		&i.Revenue,
+	)
 	return i, err
 }
 

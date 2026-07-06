@@ -1,10 +1,14 @@
 -- name: SalesSummary :one
 SELECT
     count(*)::bigint                    AS sale_count,
-    COALESCE(SUM(total), 0)::numeric    AS revenue,
-    COALESCE(SUM(discount), 0)::numeric AS discount_total
+    COALESCE(SUM(subtotal), 0)::numeric AS subtotal_total,
+    COALESCE(SUM(discount), 0)::numeric AS discount_total,
+    COALESCE(SUM(tax), 0)::numeric      AS tax_total,
+    COALESCE(SUM(total), 0)::numeric    AS revenue
 FROM sales
-WHERE branch_id = $1 AND created_at >= sqlc.arg('from') AND created_at < sqlc.arg('to');
+WHERE branch_id = $1
+  AND created_at >= sqlc.arg('from') AND created_at < sqlc.arg('to')
+  AND voided_at IS NULL;
 
 -- name: SalesDaily :many
 SELECT

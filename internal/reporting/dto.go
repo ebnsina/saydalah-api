@@ -22,8 +22,10 @@ type DateRange struct {
 type SalesSummaryResponse struct {
 	DateRange
 	SaleCount     int64           `json:"sale_count"`
-	Revenue       decimal.Decimal `json:"revenue"`
+	SubtotalTotal decimal.Decimal `json:"subtotal_total"`
 	DiscountTotal decimal.Decimal `json:"discount_total"`
+	TaxTotal      decimal.Decimal `json:"tax_total"`
+	Revenue       decimal.Decimal `json:"revenue"`
 }
 
 // DailySales is one day's totals.

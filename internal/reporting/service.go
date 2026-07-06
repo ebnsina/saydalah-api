@@ -36,8 +36,10 @@ func (s *Service) SalesSummary(ctx context.Context, id auth.Identity, branch *uu
 	return SalesSummaryResponse{
 		DateRange:     rng,
 		SaleCount:     row.SaleCount,
-		Revenue:       row.Revenue,
+		SubtotalTotal: row.SubtotalTotal,
 		DiscountTotal: row.DiscountTotal,
+		TaxTotal:      row.TaxTotal,
+		Revenue:       row.Revenue,
 	}, nil
 }
 
