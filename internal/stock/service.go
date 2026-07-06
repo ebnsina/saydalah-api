@@ -232,6 +232,72 @@ func isDomain(err error) bool {
 		errors.Is(err, httpx.ErrForbidden)
 }
 
+// StockTake reconciles physically counted quantities against the system. In one
+// transaction, each batch (which must belong to the caller's branch) is set to
+// its counted quantity and any difference is recorded as an adjustment movement
+// tagged 'stock_take'. Batches counted equal to the system value produce no
+// movement.
+func (s *Service) StockTake(ctx context.Context, id auth.Identity, in StockTakeRequest) (StockTakeResponse, error) {
+	branchID, err := id.ResolveBranch(in.BranchID)
+	if err != nil {
+		return StockTakeResponse{}, err
+	}
+
+	out := StockTakeResponse{Lines: make([]StockTakeResult, 0, len(in.Lines))}
+	err = s.repo.Tx(ctx, func(tx Repository) error {
+		for _, line := range in.Lines {
+			batch, err := tx.GetBatch(ctx, line.BatchID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("batch %s: %w", line.BatchID, httpx.ErrNotFound)
+			}
+			if err != nil {
+				return err
+			}
+			if batch.BranchID != branchID {
+				return fmt.Errorf("batch %s is not in this branch: %w", line.BatchID, httpx.ErrInvalidInput)
+			}
+
+			row, err := tx.SetBatchQuantity(ctx, store.SetBatchQuantityParams{
+				ID:       line.BatchID,
+				Quantity: line.CountedQty,
+			})
+			if err != nil {
+				return err
+			}
+			delta := row.Quantity - row.PreviousQuantity
+			if delta != 0 {
+				bID := line.BatchID
+				if _, err := tx.RecordMovement(ctx, store.RecordStockMovementParams{
+					ProductID: batch.ProductID,
+					BranchID:  branchID,
+					BatchID:   &bID,
+					Type:      store.MovementTypeAdjustment,
+					Qty:       delta,
+					RefType:   "stock_take",
+					Note:      "physical count",
+				}); err != nil {
+					return err
+				}
+			}
+			out.Lines = append(out.Lines, StockTakeResult{
+				BatchID:     line.BatchID,
+				PreviousQty: row.PreviousQuantity,
+				CountedQty:  row.Quantity,
+				Delta:       delta,
+			})
+			out.TotalDelta += int64(delta)
+		}
+		return nil
+	})
+	if err != nil {
+		if isDomain(err) {
+			return StockTakeResponse{}, err
+		}
+		return StockTakeResponse{}, fmt.Errorf("stock: stock-take: %w", err)
+	}
+	return out, nil
+}
+
 // Movements returns a page of the movement ledger for the caller's branch,
 // optionally filtered to a single product.
 func (s *Service) Movements(ctx context.Context, id auth.Identity, branch, product *uuid.UUID, p httpx.Pagination) (MovementsResult, error) {

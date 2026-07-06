@@ -29,6 +29,7 @@ func (m *Module) Mount(r chi.Router) {
 			r.Post("/adjustments", m.handler.adjust)
 			r.Post("/returns", m.handler.returnStock)
 			r.Post("/transfers", m.handler.transfer)
+			r.Post("/stock-takes", m.handler.stockTake)
 		})
 	})
 }

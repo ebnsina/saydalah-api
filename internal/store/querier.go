@@ -87,6 +87,10 @@ type Querier interface {
 	RecordStockMovement(ctx context.Context, arg RecordStockMovementParams) (StockMovement, error)
 	SalesDaily(ctx context.Context, arg SalesDailyParams) ([]SalesDailyRow, error)
 	SalesSummary(ctx context.Context, arg SalesSummaryParams) (SalesSummaryRow, error)
+	// Set a batch to an absolute counted quantity (physical stock-take), locking the
+	// row and returning both the new row and the previous quantity so the caller can
+	// record the delta as an adjustment movement.
+	SetBatchQuantity(ctx context.Context, arg SetBatchQuantityParams) (SetBatchQuantityRow, error)
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error
 	StockOnHand(ctx context.Context, arg StockOnHandParams) (int64, error)
 	// Total units already returned to a given batch against a given sale. Used to

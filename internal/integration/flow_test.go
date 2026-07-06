@@ -207,6 +207,35 @@ func TestTransferBetweenBranches(t *testing.T) {
 	}
 }
 
+func TestStockTakeReconciliation(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	branchID, productID, supplierID := e.seedBranchAndProduct(t)
+	e.receiveTwoBatches(t, branchID, productID, supplierID) // 110 on hand
+
+	// Pick the LATE batch (has 100 units) and physically count it as 90.
+	batches, err := e.st.ListDispensableBatches(ctx, store.ListDispensableBatchesParams{BranchID: branchID, ProductID: productID})
+	if err != nil || len(batches) == 0 {
+		t.Fatalf("list batches: %v", err)
+	}
+	late := batches[len(batches)-1]
+
+	res, err := e.stock.StockTake(ctx, e.admin, stock.StockTakeRequest{
+		BranchID: &branchID,
+		Lines:    []stock.StockTakeLine{{BatchID: late.ID, CountedQty: 90}},
+	})
+	if err != nil {
+		t.Fatalf("stock-take: %v", err)
+	}
+	if len(res.Lines) != 1 || res.Lines[0].PreviousQty != 100 || res.Lines[0].CountedQty != 90 || res.Lines[0].Delta != -10 {
+		t.Fatalf("unexpected reconciliation: %+v", res.Lines)
+	}
+	// 110 - 10 counted-down = 100 on hand.
+	if got := e.onHand(t, branchID, productID); got != 100 {
+		t.Errorf("on-hand after stock-take = %d, want 100", got)
+	}
+}
+
 func TestSaleLinkedReturnCap(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

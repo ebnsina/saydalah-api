@@ -96,3 +96,19 @@ LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 SELECT count(*) FROM stock_movements
 WHERE branch_id = sqlc.arg('branch_id')
   AND (sqlc.narg('product_id')::uuid IS NULL OR product_id = sqlc.narg('product_id'));
+
+-- Set a batch to an absolute counted quantity (physical stock-take), locking the
+-- row and returning both the new row and the previous quantity so the caller can
+-- record the delta as an adjustment movement.
+-- name: SetBatchQuantity :one
+WITH locked AS (
+    SELECT sb.id, sb.quantity AS prev
+    FROM stock_batches sb
+    WHERE sb.id = sqlc.arg('id')
+    FOR UPDATE
+)
+UPDATE stock_batches sb
+SET quantity = sqlc.arg('quantity')
+FROM locked
+WHERE sb.id = locked.id
+RETURNING sb.*, locked.prev AS previous_quantity;

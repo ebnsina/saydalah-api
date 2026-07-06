@@ -299,6 +299,34 @@ paths:
         "200": { description: Transferred (returns source and destination batches) }
         "400": { $ref: "#/components/responses/Error" }
         "409": { description: Insufficient source stock, $ref: "#/components/responses/Error" }
+  /stock/stock-takes:
+    post:
+      tags: [stock]
+      summary: Reconcile physical counts (pharmacist/manager)
+      description: >
+        Sets each batch to its counted quantity (atomically, with row locking)
+        and records an adjustment movement (ref_type stock_take) for any
+        difference. All batches must belong to the caller's branch.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lines]
+              properties:
+                branch_id: { type: string, format: uuid, nullable: true }
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [batch_id, counted_qty]
+                    properties:
+                      batch_id: { type: string, format: uuid }
+                      counted_qty: { type: integer, minimum: 0 }
+      responses:
+        "200": { description: Reconciled (per-line previous/counted/delta) }
+        "400": { $ref: "#/components/responses/Error" }
   /stock/movements:
     get:
       tags: [stock]

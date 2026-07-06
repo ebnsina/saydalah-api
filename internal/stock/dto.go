@@ -47,6 +47,35 @@ type TransferResponse struct {
 	Destination BatchResponse `json:"destination"`
 }
 
+// StockTakeRequest records physically counted quantities for one or more
+// batches. Each counted quantity replaces the system quantity, and the
+// difference is logged as an adjustment movement. BranchID is optional for
+// branch staff and required for admins; every batch must belong to that branch.
+type StockTakeRequest struct {
+	BranchID *uuid.UUID      `json:"branch_id"`
+	Lines    []StockTakeLine `json:"lines"     validate:"required,min=1,dive"`
+}
+
+// StockTakeLine is a single counted batch.
+type StockTakeLine struct {
+	BatchID    uuid.UUID `json:"batch_id"    validate:"required"`
+	CountedQty int32     `json:"counted_qty" validate:"gte=0"`
+}
+
+// StockTakeResponse summarizes the reconciliation.
+type StockTakeResponse struct {
+	Lines      []StockTakeResult `json:"lines"`
+	TotalDelta int64             `json:"total_delta"`
+}
+
+// StockTakeResult is the before/after for one reconciled batch.
+type StockTakeResult struct {
+	BatchID     uuid.UUID `json:"batch_id"`
+	PreviousQty int32     `json:"previous_qty"`
+	CountedQty  int32     `json:"counted_qty"`
+	Delta       int32     `json:"delta"`
+}
+
 // BatchResponse is the batch state after a write.
 type BatchResponse struct {
 	ID         uuid.UUID `json:"id"`

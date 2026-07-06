@@ -496,6 +496,59 @@ func (q *Queries) RecordStockMovement(ctx context.Context, arg RecordStockMoveme
 	return i, err
 }
 
+const setBatchQuantity = `-- name: SetBatchQuantity :one
+WITH locked AS (
+    SELECT sb.id, sb.quantity AS prev
+    FROM stock_batches sb
+    WHERE sb.id = $2
+    FOR UPDATE
+)
+UPDATE stock_batches sb
+SET quantity = $1
+FROM locked
+WHERE sb.id = locked.id
+RETURNING sb.id, sb.product_id, sb.branch_id, sb.batch_no, sb.quantity, sb.cost_price, sb.sale_price, sb.expiry_date, sb.received_at, locked.prev AS previous_quantity
+`
+
+type SetBatchQuantityParams struct {
+	Quantity int32     `json:"quantity"`
+	ID       uuid.UUID `json:"id"`
+}
+
+type SetBatchQuantityRow struct {
+	ID               uuid.UUID       `json:"id"`
+	ProductID        uuid.UUID       `json:"product_id"`
+	BranchID         uuid.UUID       `json:"branch_id"`
+	BatchNo          string          `json:"batch_no"`
+	Quantity         int32           `json:"quantity"`
+	CostPrice        decimal.Decimal `json:"cost_price"`
+	SalePrice        decimal.Decimal `json:"sale_price"`
+	ExpiryDate       time.Time       `json:"expiry_date"`
+	ReceivedAt       time.Time       `json:"received_at"`
+	PreviousQuantity int32           `json:"previous_quantity"`
+}
+
+// Set a batch to an absolute counted quantity (physical stock-take), locking the
+// row and returning both the new row and the previous quantity so the caller can
+// record the delta as an adjustment movement.
+func (q *Queries) SetBatchQuantity(ctx context.Context, arg SetBatchQuantityParams) (SetBatchQuantityRow, error) {
+	row := q.db.QueryRow(ctx, setBatchQuantity, arg.Quantity, arg.ID)
+	var i SetBatchQuantityRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.BranchID,
+		&i.BatchNo,
+		&i.Quantity,
+		&i.CostPrice,
+		&i.SalePrice,
+		&i.ExpiryDate,
+		&i.ReceivedAt,
+		&i.PreviousQuantity,
+	)
+	return i, err
+}
+
 const stockOnHand = `-- name: StockOnHand :one
 SELECT COALESCE(SUM(quantity), 0)::bigint AS on_hand
 FROM stock_batches

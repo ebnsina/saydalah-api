@@ -39,6 +39,15 @@ func (f *fakeRepo) AdjustBatch(_ context.Context, arg store.AdjustBatchQuantityP
 	return f.batch, nil
 }
 
+func (f *fakeRepo) SetBatchQuantity(_ context.Context, arg store.SetBatchQuantityParams) (store.SetBatchQuantityRow, error) {
+	prev := f.batch.Quantity
+	f.batch.Quantity = arg.Quantity
+	return store.SetBatchQuantityRow{
+		ID: f.batch.ID, ProductID: f.batch.ProductID, BranchID: f.batch.BranchID,
+		Quantity: arg.Quantity, PreviousQuantity: prev,
+	}, nil
+}
+
 func (f *fakeRepo) CreateBatch(_ context.Context, arg store.CreateStockBatchParams) (store.StockBatch, error) {
 	b := store.StockBatch{
 		ID: uuid.New(), ProductID: arg.ProductID, BranchID: arg.BranchID,
@@ -227,6 +236,43 @@ func TestSaleLinkedReturnBatchNotInSale(t *testing.T) {
 	})
 	if !errors.Is(err, httpx.ErrInvalidInput) {
 		t.Fatalf("expected invalid input for batch not in sale, got %v", err)
+	}
+}
+
+func TestStockTakeRecordsDelta(t *testing.T) {
+	repo := &fakeRepo{batch: newBatch(10)}
+	res, err := NewService(repo).StockTake(context.Background(), manager, StockTakeRequest{
+		BranchID: &branchID,
+		Lines:    []StockTakeLine{{BatchID: repo.batch.ID, CountedQty: 8}}, // 2 short
+	})
+	if err != nil {
+		t.Fatalf("StockTake: %v", err)
+	}
+	if len(res.Lines) != 1 || res.Lines[0].PreviousQty != 10 || res.Lines[0].CountedQty != 8 || res.Lines[0].Delta != -2 {
+		t.Errorf("unexpected result: %+v", res.Lines)
+	}
+	if res.TotalDelta != -2 {
+		t.Errorf("total delta = %d, want -2", res.TotalDelta)
+	}
+	if len(repo.movements) != 1 || repo.movements[0].RefType != "stock_take" || repo.movements[0].Qty != -2 {
+		t.Errorf("expected one stock_take movement of -2, got %+v", repo.movements)
+	}
+}
+
+func TestStockTakeNoChangeNoMovement(t *testing.T) {
+	repo := &fakeRepo{batch: newBatch(10)}
+	res, err := NewService(repo).StockTake(context.Background(), manager, StockTakeRequest{
+		BranchID: &branchID,
+		Lines:    []StockTakeLine{{BatchID: repo.batch.ID, CountedQty: 10}}, // matches
+	})
+	if err != nil {
+		t.Fatalf("StockTake: %v", err)
+	}
+	if res.Lines[0].Delta != 0 {
+		t.Errorf("delta = %d, want 0", res.Lines[0].Delta)
+	}
+	if len(repo.movements) != 0 {
+		t.Errorf("no movement expected when count matches, got %d", len(repo.movements))
 	}
 }
 
