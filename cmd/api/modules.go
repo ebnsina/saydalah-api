@@ -31,11 +31,16 @@ import (
 // handler) and mounts its routes. This is the single wiring seam: dependencies
 // are built here and flow in one direction. Public routes (login) sit outside
 // the auth gate; everything else runs behind Authenticate.
-func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager) {
+func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager, cfg config.Config) {
 	api := srv.API()
 
 	authMod := auth.New(st, tm)
-	authMod.MountPublic(api)
+	// Login gets a stricter, dedicated rate limit on top of the global one to
+	// blunt credential brute-forcing.
+	api.Group(func(r chi.Router) {
+		r.Use(middleware.RateLimit(cfg.LoginRateRPS, cfg.LoginRateBurst))
+		authMod.MountPublic(r)
+	})
 
 	api.Group(func(r chi.Router) {
 		r.Use(middleware.Authenticate(tm))

@@ -42,6 +42,8 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) *Server {
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
+	// Global per-IP rate limit (after CORS so preflight is not counted).
+	mux.Use(middleware.RateLimit(cfg.RateLimitRPS, cfg.RateLimitBurst))
 
 	// Consistent JSON responses for unmatched routes/methods.
 	mux.NotFound(func(w http.ResponseWriter, r *http.Request) {

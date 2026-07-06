@@ -61,7 +61,7 @@ func run() error {
 	}
 
 	srv := server.New(cfg, logger, pool)
-	registerModules(srv, st, tm)
+	registerModules(srv, st, tm, cfg)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

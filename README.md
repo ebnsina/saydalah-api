@@ -84,8 +84,16 @@ secret store; point liveness at `/healthz` and readiness at `/readyz`.
 ## Configuration
 
 All config comes from the environment (see `.env.example`): `DATABASE_URL` and `JWT_SECRET` are
-required; `APP_ENV`, `HTTP_ADDR`, `JWT_TTL`, `CORS_ORIGINS`, `SHUTDOWN_TIMEOUT` have defaults.
+required; `APP_ENV`, `HTTP_ADDR`, `JWT_TTL`, `CORS_ORIGINS`, `SHUTDOWN_TIMEOUT`,
+`RATE_LIMIT_RPS`/`RATE_LIMIT_BURST`, and `LOGIN_RATE_RPS`/`LOGIN_RATE_BURST` have defaults.
 Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` to bootstrap the first admin on an empty database.
+
+Config loading is **fail-fast**: an unset variable uses its default, but a variable set to a
+malformed or out-of-range value makes startup fail with a combined error — a bad override never
+silently reverts to a default.
+
+Requests are rate-limited per client IP (429 + `Retry-After`), with a stricter limiter on
+`POST /auth/login`.
 
 ## Modules & endpoints
 
