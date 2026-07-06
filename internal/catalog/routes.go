@@ -22,6 +22,7 @@ func New(s *store.Store) *Module {
 func (m *Module) Mount(r chi.Router) {
 	r.Route("/products", func(r chi.Router) {
 		r.Get("/", m.handler.list)
+		r.Get("/categories", m.handler.categories)
 		r.Get("/barcode/{code}", m.handler.getByBarcode)
 		r.Get("/{id}", m.handler.get)
 

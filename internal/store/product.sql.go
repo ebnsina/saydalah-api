@@ -19,10 +19,18 @@ WHERE (
     OR generic_name ILIKE '%' || $1 || '%'
     OR barcode = $1
 )
+  AND ($2::text IS NULL OR category = $2)
+  AND ($3::boolean IS NULL OR active = $3)
 `
 
-func (q *Queries) CountProducts(ctx context.Context, search *string) (int64, error) {
-	row := q.db.QueryRow(ctx, countProducts, search)
+type CountProductsParams struct {
+	Search   *string `json:"search"`
+	Category *string `json:"category"`
+	Active   *bool   `json:"active"`
+}
+
+func (q *Queries) CountProducts(ctx context.Context, arg CountProductsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countProducts, arg.Search, arg.Category, arg.Active)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -123,6 +131,30 @@ func (q *Queries) GetProductByBarcode(ctx context.Context, barcode *string) (Pro
 	return i, err
 }
 
+const listProductCategories = `-- name: ListProductCategories :many
+SELECT DISTINCT category FROM products WHERE category <> '' ORDER BY category
+`
+
+func (q *Queries) ListProductCategories(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listProductCategories)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var category string
+		if err := rows.Scan(&category); err != nil {
+			return nil, err
+		}
+		items = append(items, category)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProducts = `-- name: ListProducts :many
 SELECT id, name, generic_name, form, strength, barcode, category, unit, reorder_level, active, created_at, updated_at FROM products
 WHERE (
@@ -131,18 +163,28 @@ WHERE (
     OR generic_name ILIKE '%' || $1 || '%'
     OR barcode = $1
 )
+  AND ($2::text IS NULL OR category = $2)
+  AND ($3::boolean IS NULL OR active = $3)
 ORDER BY name
-LIMIT $3 OFFSET $2
+LIMIT $5 OFFSET $4
 `
 
 type ListProductsParams struct {
-	Search *string `json:"search"`
-	Offset int32   `json:"offset"`
-	Limit  int32   `json:"limit"`
+	Search   *string `json:"search"`
+	Category *string `json:"category"`
+	Active   *bool   `json:"active"`
+	Offset   int32   `json:"offset"`
+	Limit    int32   `json:"limit"`
 }
 
 func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error) {
-	rows, err := q.db.Query(ctx, listProducts, arg.Search, arg.Offset, arg.Limit)
+	rows, err := q.db.Query(ctx, listProducts,
+		arg.Search,
+		arg.Category,
+		arg.Active,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

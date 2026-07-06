@@ -174,11 +174,20 @@ paths:
   /products:
     get:
       tags: [products]
-      summary: List/search products
+      summary: List/search/filter products
       parameters:
         - { name: search, in: query, schema: { type: string } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: active, in: query, schema: { type: string, enum: ["true", "false"] } }
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200": { description: OK }
+
+  /products/categories:
+    get:
+      tags: [products]
+      summary: Distinct product categories (for filters)
       responses:
         "200": { description: OK }
     post:

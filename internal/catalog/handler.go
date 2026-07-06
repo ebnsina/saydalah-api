@@ -44,6 +44,23 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, toResponse(p))
 }
 
+func (h *Handler) categories(w http.ResponseWriter, r *http.Request) {
+	cats, err := h.svc.Categories(r.Context())
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": cats})
+}
+
+// optionalStr returns a pointer to v, or nil when v is empty.
+func optionalStr(v string) *string {
+	if v == "" {
+		return nil
+	}
+	return &v
+}
+
 func (h *Handler) getByBarcode(w http.ResponseWriter, r *http.Request) {
 	code := chi.URLParam(r, "code")
 	if code == "" {
@@ -59,11 +76,21 @@ func (h *Handler) getByBarcode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
-	var search *string
-	if q := r.URL.Query().Get("search"); q != "" {
-		search = &q
+	q := r.URL.Query()
+	filter := Filter{
+		Search:   optionalStr(q.Get("search")),
+		Category: optionalStr(q.Get("category")),
 	}
-	res, err := h.svc.List(r.Context(), search, httpx.ParsePagination(r))
+	// active=true|false filters by status; absent means no filter.
+	switch q.Get("active") {
+	case "true":
+		v := true
+		filter.Active = &v
+	case "false":
+		v := false
+		filter.Active = &v
+	}
+	res, err := h.svc.List(r.Context(), filter, httpx.ParsePagination(r))
 	if err != nil {
 		httpx.Error(w, r, err)
 		return

@@ -73,23 +73,46 @@ func (s *Service) GetByBarcode(ctx context.Context, code string) (store.Product,
 	return p, nil
 }
 
-// List returns a page of products, optionally filtered by a search term
-// matching name, generic name, or barcode.
-func (s *Service) List(ctx context.Context, search *string, p httpx.Pagination) (ListResult, error) {
-	search = cleanBarcode(search) // reuse: trims and nils empty
+// Filter holds the optional product-list filters. A nil field means "no filter"
+// on that dimension.
+type Filter struct {
+	Search   *string
+	Category *string
+	Active   *bool
+}
+
+// List returns a page of products matching the filter (search over name/generic/
+// barcode, plus optional category and active-status filters).
+func (s *Service) List(ctx context.Context, f Filter, p httpx.Pagination) (ListResult, error) {
+	search := cleanBarcode(f.Search) // reuse: trims and nils empty
 	items, err := s.repo.List(ctx, store.ListProductsParams{
-		Search: search,
-		Limit:  p.Limit,
-		Offset: p.Offset,
+		Search:   search,
+		Category: f.Category,
+		Active:   f.Active,
+		Limit:    p.Limit,
+		Offset:   p.Offset,
 	})
 	if err != nil {
 		return ListResult{}, fmt.Errorf("catalog: list: %w", err)
 	}
-	total, err := s.repo.Count(ctx, search)
+	total, err := s.repo.Count(ctx, store.CountProductsParams{
+		Search:   search,
+		Category: f.Category,
+		Active:   f.Active,
+	})
 	if err != nil {
 		return ListResult{}, fmt.Errorf("catalog: count: %w", err)
 	}
 	return ListResult{Items: items, Total: total}, nil
+}
+
+// Categories returns the distinct non-empty product categories, for filter UIs.
+func (s *Service) Categories(ctx context.Context) ([]string, error) {
+	cats, err := s.repo.Categories(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("catalog: categories: %w", err)
+	}
+	return cats, nil
 }
 
 // Update replaces a product's mutable fields.

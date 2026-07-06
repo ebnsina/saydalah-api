@@ -15,6 +15,8 @@ WHERE (
     OR generic_name ILIKE '%' || sqlc.narg('search') || '%'
     OR barcode = sqlc.narg('search')
 )
+  AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category'))
+  AND (sqlc.narg('active')::boolean IS NULL OR active = sqlc.narg('active'))
 ORDER BY name
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
@@ -25,7 +27,12 @@ WHERE (
     OR name ILIKE '%' || sqlc.narg('search') || '%'
     OR generic_name ILIKE '%' || sqlc.narg('search') || '%'
     OR barcode = sqlc.narg('search')
-);
+)
+  AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category'))
+  AND (sqlc.narg('active')::boolean IS NULL OR active = sqlc.narg('active'));
+
+-- name: ListProductCategories :many
+SELECT DISTINCT category FROM products WHERE category <> '' ORDER BY category;
 
 -- name: UpdateProduct :one
 UPDATE products
