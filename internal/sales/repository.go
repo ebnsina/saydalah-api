@@ -23,6 +23,7 @@ type Repository interface {
 	ListItems(ctx context.Context, saleID uuid.UUID) ([]store.SaleItem, error)
 	ListSales(ctx context.Context, arg store.ListSalesParams) ([]store.Sale, error)
 	CountSales(ctx context.Context, arg store.CountSalesParams) (int64, error)
+	GetProduct(ctx context.Context, id uuid.UUID) (store.Product, error)
 
 	// Tx runs fn against a transaction-scoped Repository, committing on success.
 	Tx(ctx context.Context, fn func(Repository) error) error
@@ -46,6 +47,10 @@ func (r *storeRepository) Tx(ctx context.Context, fn func(Repository) error) err
 
 func (r *storeRepository) DispensableBatches(ctx context.Context, arg store.ListDispensableBatchesParams) ([]store.StockBatch, error) {
 	return r.q.ListDispensableBatches(ctx, arg)
+}
+
+func (r *storeRepository) GetProduct(ctx context.Context, id uuid.UUID) (store.Product, error) {
+	return r.q.GetProduct(ctx, id)
 }
 
 func (r *storeRepository) DecrementBatch(ctx context.Context, arg store.DecrementBatchQuantityParams) (store.StockBatch, error) {

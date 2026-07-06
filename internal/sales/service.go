@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -159,7 +160,18 @@ func dispense(ctx context.Context, tx Repository, branchID uuid.UUID, lines []Li
 			remaining -= take
 		}
 		if remaining > 0 {
-			return nil, decimal.Zero, fmt.Errorf("product %s: %w", line.ProductID, httpx.ErrInsufficientStock)
+			// Actionable message: name the product and the available vs requested
+			// quantity so the cashier can adjust the cart.
+			available := line.Qty - remaining
+			name := line.ProductID.String()
+			if p, err := tx.GetProduct(ctx, line.ProductID); err == nil && p.Name != "" {
+				name = p.Name
+			}
+			return nil, decimal.Zero, &httpx.APIError{
+				Status:  http.StatusConflict,
+				Message: fmt.Sprintf("Not enough stock for %s — %d in stock, %d requested.", name, available, line.Qty),
+				Err:     httpx.ErrInsufficientStock,
+			}
 		}
 	}
 	return allocs, subtotal, nil
@@ -285,6 +297,10 @@ func wrap(op string, err error) error {
 }
 
 func isDomain(err error) bool {
+	var apiErr *httpx.APIError
+	if errors.As(err, &apiErr) {
+		return true
+	}
 	return errors.Is(err, httpx.ErrInvalidInput) ||
 		errors.Is(err, httpx.ErrConflict) ||
 		errors.Is(err, httpx.ErrNotFound) ||

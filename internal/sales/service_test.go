@@ -61,6 +61,10 @@ func (f *fakeRepo) Tx(ctx context.Context, fn func(Repository) error) error {
 	return nil
 }
 
+func (f *fakeRepo) GetProduct(_ context.Context, id uuid.UUID) (store.Product, error) {
+	return store.Product{ID: id, Name: "Test Product"}, nil
+}
+
 func (f *fakeRepo) DispensableBatches(_ context.Context, arg store.ListDispensableBatchesParams) ([]store.StockBatch, error) {
 	var out []store.StockBatch
 	today := time.Now()
