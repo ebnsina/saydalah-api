@@ -20,6 +20,7 @@ tags:
   - name: suppliers
   - name: purchasing
   - name: inventory
+  - name: stock
   - name: sales
   - name: customers
   - name: prescriptions
@@ -233,6 +234,53 @@ paths:
       parameters:
         - { name: productID, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: "#/components/parameters/BranchId"
+      responses: { "200": { description: OK } }
+
+  /stock/adjustments:
+    post:
+      tags: [stock]
+      summary: Adjust a batch quantity (pharmacist/manager)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [batch_id, delta]
+              properties:
+                batch_id: { type: string, format: uuid }
+                delta: { type: integer, description: signed correction; result may not go below 0 }
+                note: { type: string }
+      responses:
+        "200": { description: Adjusted (returns new batch state) }
+        "400": { $ref: "#/components/responses/Error" }
+  /stock/returns:
+    post:
+      tags: [stock]
+      summary: Return quantity to a batch (pharmacist/manager)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [batch_id, qty]
+              properties:
+                batch_id: { type: string, format: uuid }
+                qty: { type: integer, minimum: 1 }
+                sale_id: { type: string, format: uuid, nullable: true }
+                note: { type: string }
+      responses:
+        "200": { description: Returned (returns new batch state) }
+  /stock/movements:
+    get:
+      tags: [stock]
+      summary: Movement ledger (audit trail)
+      parameters:
+        - $ref: "#/components/parameters/BranchId"
+        - { name: product_id, in: query, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
       responses: { "200": { description: OK } }
 
   /sales:

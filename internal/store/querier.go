@@ -15,6 +15,9 @@ type Querier interface {
 	AddPrescriptionItem(ctx context.Context, arg AddPrescriptionItemParams) (PrescriptionItem, error)
 	AddPurchaseOrderItem(ctx context.Context, arg AddPurchaseOrderItemParams) (PurchaseOrderItem, error)
 	AddSaleItem(ctx context.Context, arg AddSaleItemParams) (SaleItem, error)
+	// Apply a signed delta to a batch, refusing to drive quantity negative.
+	// Zero rows returned means the adjustment would go below zero.
+	AdjustBatchQuantity(ctx context.Context, arg AdjustBatchQuantityParams) (StockBatch, error)
 	CountBranchBatches(ctx context.Context, branchID uuid.UUID) (int64, error)
 	CountBranches(ctx context.Context) (int64, error)
 	CountCustomers(ctx context.Context, search *string) (int64, error)
@@ -22,6 +25,7 @@ type Querier interface {
 	CountProducts(ctx context.Context, search *string) (int64, error)
 	CountPurchaseOrders(ctx context.Context, branchID uuid.UUID) (int64, error)
 	CountSales(ctx context.Context, branchID uuid.UUID) (int64, error)
+	CountStockMovements(ctx context.Context, arg CountStockMovementsParams) (int64, error)
 	CountSuppliers(ctx context.Context) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
@@ -44,6 +48,8 @@ type Querier interface {
 	GetProduct(ctx context.Context, id uuid.UUID) (Product, error)
 	GetPurchaseOrder(ctx context.Context, id uuid.UUID) (PurchaseOrder, error)
 	GetSale(ctx context.Context, id uuid.UUID) (Sale, error)
+	// Stock adjustment / return writes and the movement-ledger view ---------------
+	GetStockBatch(ctx context.Context, id uuid.UUID) (StockBatch, error)
 	GetSupplier(ctx context.Context, id uuid.UUID) (Supplier, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
@@ -65,6 +71,7 @@ type Querier interface {
 	ListPurchaseOrders(ctx context.Context, arg ListPurchaseOrdersParams) ([]PurchaseOrder, error)
 	ListSaleItems(ctx context.Context, saleID uuid.UUID) ([]SaleItem, error)
 	ListSales(ctx context.Context, arg ListSalesParams) ([]Sale, error)
+	ListStockMovements(ctx context.Context, arg ListStockMovementsParams) ([]ListStockMovementsRow, error)
 	ListSuppliers(ctx context.Context, arg ListSuppliersParams) ([]Supplier, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	// Mark a prescription dispensed once. The guard makes re-dispensing a no-op

@@ -1,0 +1,106 @@
+package stock
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/ebnsina/saydalah-api/internal/auth"
+	"github.com/ebnsina/saydalah-api/internal/httpx"
+	"github.com/ebnsina/saydalah-api/internal/store"
+)
+
+type fakeRepo struct {
+	batch     store.StockBatch
+	movements []store.RecordStockMovementParams
+}
+
+func (f *fakeRepo) Tx(ctx context.Context, fn func(Repository) error) error { return fn(f) }
+
+func (f *fakeRepo) GetBatch(context.Context, uuid.UUID) (store.StockBatch, error) {
+	return f.batch, nil
+}
+
+func (f *fakeRepo) AdjustBatch(_ context.Context, arg store.AdjustBatchQuantityParams) (store.StockBatch, error) {
+	if f.batch.Quantity+arg.Delta < 0 {
+		return store.StockBatch{}, pgx.ErrNoRows // matches the SQL guard
+	}
+	f.batch.Quantity += arg.Delta
+	return f.batch, nil
+}
+
+func (f *fakeRepo) RecordMovement(_ context.Context, arg store.RecordStockMovementParams) (store.StockMovement, error) {
+	f.movements = append(f.movements, arg)
+	return store.StockMovement{}, nil
+}
+
+func (f *fakeRepo) ListMovements(context.Context, store.ListStockMovementsParams) ([]store.ListStockMovementsRow, error) {
+	return nil, nil
+}
+func (f *fakeRepo) CountMovements(context.Context, store.CountStockMovementsParams) (int64, error) {
+	return 0, nil
+}
+
+var (
+	branchID = uuid.New()
+	manager  = auth.Identity{UserID: uuid.New(), Role: store.UserRoleManager, BranchID: &branchID}
+)
+
+func newBatch(qty int32) store.StockBatch {
+	return store.StockBatch{ID: uuid.New(), ProductID: uuid.New(), BranchID: branchID, Quantity: qty}
+}
+
+func TestAdjustDown(t *testing.T) {
+	repo := &fakeRepo{batch: newBatch(10)}
+	res, err := NewService(repo).Adjust(context.Background(), manager, AdjustRequest{BatchID: repo.batch.ID, Delta: -3})
+	if err != nil {
+		t.Fatalf("Adjust: %v", err)
+	}
+	if res.Quantity != 7 {
+		t.Errorf("quantity = %d, want 7", res.Quantity)
+	}
+	if len(repo.movements) != 1 || repo.movements[0].Type != store.MovementTypeAdjustment || repo.movements[0].Qty != -3 {
+		t.Errorf("expected one adjustment movement of -3, got %+v", repo.movements)
+	}
+}
+
+func TestAdjustRejectsNegativeResult(t *testing.T) {
+	repo := &fakeRepo{batch: newBatch(2)}
+	_, err := NewService(repo).Adjust(context.Background(), manager, AdjustRequest{BatchID: repo.batch.ID, Delta: -5})
+	if !errors.Is(err, httpx.ErrInvalidInput) {
+		t.Fatalf("expected invalid-input error, got %v", err)
+	}
+	if repo.batch.Quantity != 2 {
+		t.Errorf("quantity should stay 2, got %d", repo.batch.Quantity)
+	}
+	if len(repo.movements) != 0 {
+		t.Errorf("no movement should be recorded on failure, got %d", len(repo.movements))
+	}
+}
+
+func TestReturnIncrementsAndRecordsReturn(t *testing.T) {
+	repo := &fakeRepo{batch: newBatch(10)}
+	res, err := NewService(repo).Return(context.Background(), manager, ReturnRequest{BatchID: repo.batch.ID, Qty: 4})
+	if err != nil {
+		t.Fatalf("Return: %v", err)
+	}
+	if res.Quantity != 14 {
+		t.Errorf("quantity = %d, want 14", res.Quantity)
+	}
+	if repo.movements[0].Type != store.MovementTypeReturn || repo.movements[0].Qty != 4 {
+		t.Errorf("expected a return movement of +4, got %+v", repo.movements[0])
+	}
+}
+
+func TestForbiddenOtherBranch(t *testing.T) {
+	repo := &fakeRepo{batch: newBatch(10)}
+	other := uuid.New()
+	staff := auth.Identity{UserID: uuid.New(), Role: store.UserRoleCashier, BranchID: &other}
+	_, err := NewService(repo).Adjust(context.Background(), staff, AdjustRequest{BatchID: repo.batch.ID, Delta: -1})
+	if !errors.Is(err, httpx.ErrForbidden) {
+		t.Fatalf("expected forbidden for other branch, got %v", err)
+	}
+}

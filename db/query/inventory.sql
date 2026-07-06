@@ -69,3 +69,30 @@ WHERE p.active
 GROUP BY p.id
 HAVING COALESCE(SUM(sb.quantity), 0) <= p.reorder_level
 ORDER BY on_hand ASC;
+
+-- Stock adjustment / return writes and the movement-ledger view ---------------
+
+-- name: GetStockBatch :one
+SELECT * FROM stock_batches WHERE id = $1;
+
+-- Apply a signed delta to a batch, refusing to drive quantity negative.
+-- Zero rows returned means the adjustment would go below zero.
+-- name: AdjustBatchQuantity :one
+UPDATE stock_batches
+SET quantity = quantity + sqlc.arg('delta')
+WHERE id = sqlc.arg('id') AND quantity + sqlc.arg('delta') >= 0
+RETURNING *;
+
+-- name: ListStockMovements :many
+SELECT sm.*, p.name AS product_name
+FROM stock_movements sm
+JOIN products p ON p.id = sm.product_id
+WHERE sm.branch_id = sqlc.arg('branch_id')
+  AND (sqlc.narg('product_id')::uuid IS NULL OR sm.product_id = sqlc.narg('product_id'))
+ORDER BY sm.created_at DESC
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
+-- name: CountStockMovements :one
+SELECT count(*) FROM stock_movements
+WHERE branch_id = sqlc.arg('branch_id')
+  AND (sqlc.narg('product_id')::uuid IS NULL OR product_id = sqlc.narg('product_id'));

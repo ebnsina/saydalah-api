@@ -13,6 +13,37 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const adjustBatchQuantity = `-- name: AdjustBatchQuantity :one
+UPDATE stock_batches
+SET quantity = quantity + $1
+WHERE id = $2 AND quantity + $1 >= 0
+RETURNING id, product_id, branch_id, batch_no, quantity, cost_price, sale_price, expiry_date, received_at
+`
+
+type AdjustBatchQuantityParams struct {
+	Delta int32     `json:"delta"`
+	ID    uuid.UUID `json:"id"`
+}
+
+// Apply a signed delta to a batch, refusing to drive quantity negative.
+// Zero rows returned means the adjustment would go below zero.
+func (q *Queries) AdjustBatchQuantity(ctx context.Context, arg AdjustBatchQuantityParams) (StockBatch, error) {
+	row := q.db.QueryRow(ctx, adjustBatchQuantity, arg.Delta, arg.ID)
+	var i StockBatch
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.BranchID,
+		&i.BatchNo,
+		&i.Quantity,
+		&i.CostPrice,
+		&i.SalePrice,
+		&i.ExpiryDate,
+		&i.ReceivedAt,
+	)
+	return i, err
+}
+
 const countBranchBatches = `-- name: CountBranchBatches :one
 SELECT count(*) FROM stock_batches
 WHERE branch_id = $1 AND quantity > 0
@@ -20,6 +51,24 @@ WHERE branch_id = $1 AND quantity > 0
 
 func (q *Queries) CountBranchBatches(ctx context.Context, branchID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countBranchBatches, branchID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countStockMovements = `-- name: CountStockMovements :one
+SELECT count(*) FROM stock_movements
+WHERE branch_id = $1
+  AND ($2::uuid IS NULL OR product_id = $2)
+`
+
+type CountStockMovementsParams struct {
+	BranchID  uuid.UUID  `json:"branch_id"`
+	ProductID *uuid.UUID `json:"product_id"`
+}
+
+func (q *Queries) CountStockMovements(ctx context.Context, arg CountStockMovementsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStockMovements, arg.BranchID, arg.ProductID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -86,6 +135,29 @@ type DecrementBatchQuantityParams struct {
 // row; zero rows means insufficient stock (used by FEFO dispensing).
 func (q *Queries) DecrementBatchQuantity(ctx context.Context, arg DecrementBatchQuantityParams) (StockBatch, error) {
 	row := q.db.QueryRow(ctx, decrementBatchQuantity, arg.Qty, arg.ID)
+	var i StockBatch
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.BranchID,
+		&i.BatchNo,
+		&i.Quantity,
+		&i.CostPrice,
+		&i.SalePrice,
+		&i.ExpiryDate,
+		&i.ReceivedAt,
+	)
+	return i, err
+}
+
+const getStockBatch = `-- name: GetStockBatch :one
+
+SELECT id, product_id, branch_id, batch_no, quantity, cost_price, sale_price, expiry_date, received_at FROM stock_batches WHERE id = $1
+`
+
+// Stock adjustment / return writes and the movement-ledger view ---------------
+func (q *Queries) GetStockBatch(ctx context.Context, id uuid.UUID) (StockBatch, error) {
+	row := q.db.QueryRow(ctx, getStockBatch, id)
 	var i StockBatch
 	err := row.Scan(
 		&i.ID,
@@ -299,6 +371,74 @@ func (q *Queries) ListNearExpiryBatches(ctx context.Context, arg ListNearExpiryB
 			&i.SalePrice,
 			&i.ExpiryDate,
 			&i.ReceivedAt,
+			&i.ProductName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStockMovements = `-- name: ListStockMovements :many
+SELECT sm.id, sm.product_id, sm.branch_id, sm.batch_id, sm.type, sm.qty, sm.ref_type, sm.ref_id, sm.note, sm.created_at, p.name AS product_name
+FROM stock_movements sm
+JOIN products p ON p.id = sm.product_id
+WHERE sm.branch_id = $1
+  AND ($2::uuid IS NULL OR sm.product_id = $2)
+ORDER BY sm.created_at DESC
+LIMIT $4 OFFSET $3
+`
+
+type ListStockMovementsParams struct {
+	BranchID  uuid.UUID  `json:"branch_id"`
+	ProductID *uuid.UUID `json:"product_id"`
+	Offset    int32      `json:"offset"`
+	Limit     int32      `json:"limit"`
+}
+
+type ListStockMovementsRow struct {
+	ID          uuid.UUID    `json:"id"`
+	ProductID   uuid.UUID    `json:"product_id"`
+	BranchID    uuid.UUID    `json:"branch_id"`
+	BatchID     *uuid.UUID   `json:"batch_id"`
+	Type        MovementType `json:"type"`
+	Qty         int32        `json:"qty"`
+	RefType     string       `json:"ref_type"`
+	RefID       *uuid.UUID   `json:"ref_id"`
+	Note        string       `json:"note"`
+	CreatedAt   time.Time    `json:"created_at"`
+	ProductName string       `json:"product_name"`
+}
+
+func (q *Queries) ListStockMovements(ctx context.Context, arg ListStockMovementsParams) ([]ListStockMovementsRow, error) {
+	rows, err := q.db.Query(ctx, listStockMovements,
+		arg.BranchID,
+		arg.ProductID,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStockMovementsRow{}
+	for rows.Next() {
+		var i ListStockMovementsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.BranchID,
+			&i.BatchID,
+			&i.Type,
+			&i.Qty,
+			&i.RefType,
+			&i.RefID,
+			&i.Note,
+			&i.CreatedAt,
 			&i.ProductName,
 		); err != nil {
 			return nil, err
