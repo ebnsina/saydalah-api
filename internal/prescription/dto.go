@@ -33,7 +33,7 @@ type ItemInput struct {
 type DispenseRequest struct {
 	PaymentMethod store.PaymentMethod `json:"payment_method" validate:"required,oneof=cash card mobile"`
 	Discount      decimal.Decimal     `json:"discount"`
-	Paid          decimal.Decimal     `json:"paid"`
+	Paid          *decimal.Decimal    `json:"paid"`
 }
 
 // Response is the client-facing prescription with its items.

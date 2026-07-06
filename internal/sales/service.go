@@ -73,6 +73,20 @@ func (s *Service) Create(ctx context.Context, id auth.Identity, in CreateRequest
 		tax := taxable.Mul(s.taxRate).Round(2)
 		total := taxable.Add(tax)
 
+		// Paid defaults to the full total; a supplied amount (partial or 0 for an
+		// on-account sale) leaves the remainder as the customer's balance. Credit
+		// (paid < total) requires an attached customer.
+		paid := total
+		if in.Paid != nil {
+			paid = *in.Paid
+			if paid.IsNegative() {
+				return fmt.Errorf("paid amount must not be negative: %w", httpx.ErrInvalidInput)
+			}
+			if paid.LessThan(total) && in.CustomerID == nil {
+				return fmt.Errorf("a customer is required to sell on credit: %w", httpx.ErrInvalidInput)
+			}
+		}
+
 		sale, err = tx.CreateSale(ctx, store.CreateSaleParams{
 			BranchID:       branchID,
 			CashierID:      id.UserID,
@@ -82,7 +96,7 @@ func (s *Service) Create(ctx context.Context, id auth.Identity, in CreateRequest
 			Discount:       discount,
 			Tax:            tax,
 			Total:          total,
-			Paid:           in.Paid,
+			Paid:           paid,
 			PaymentMethod:  in.PaymentMethod,
 		})
 		if store.IsForeignKeyViolation(err) {

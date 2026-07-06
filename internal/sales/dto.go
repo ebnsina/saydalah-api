@@ -22,8 +22,11 @@ type CreateRequest struct {
 	PrescriptionID *uuid.UUID          `json:"prescription_id"`
 	PaymentMethod  store.PaymentMethod `json:"payment_method" validate:"required,oneof=cash card mobile"`
 	Discount       decimal.Decimal     `json:"discount"`
-	Paid           decimal.Decimal     `json:"paid"`
-	Lines          []LineInput         `json:"lines"          validate:"required,min=1,dive"`
+	// Paid is optional: nil means paid in full. A value (e.g. 0 for an on-account
+	// sale, or a partial amount) records the tendered amount; the remainder is the
+	// customer's outstanding balance.
+	Paid  *decimal.Decimal `json:"paid"`
+	Lines []LineInput      `json:"lines" validate:"required,min=1,dive"`
 }
 
 // LineInput is a requested product and quantity to dispense.
