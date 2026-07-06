@@ -12,16 +12,21 @@ import (
 )
 
 type Querier interface {
+	AddPrescriptionItem(ctx context.Context, arg AddPrescriptionItemParams) (PrescriptionItem, error)
 	AddPurchaseOrderItem(ctx context.Context, arg AddPurchaseOrderItemParams) (PurchaseOrderItem, error)
 	AddSaleItem(ctx context.Context, arg AddSaleItemParams) (SaleItem, error)
 	CountBranchBatches(ctx context.Context, branchID uuid.UUID) (int64, error)
 	CountBranches(ctx context.Context) (int64, error)
+	CountCustomers(ctx context.Context, search *string) (int64, error)
+	CountPrescriptions(ctx context.Context, branchID uuid.UUID) (int64, error)
 	CountProducts(ctx context.Context, search *string) (int64, error)
 	CountPurchaseOrders(ctx context.Context, branchID uuid.UUID) (int64, error)
 	CountSales(ctx context.Context, branchID uuid.UUID) (int64, error)
 	CountSuppliers(ctx context.Context) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
+	CreateCustomer(ctx context.Context, arg CreateCustomerParams) (Customer, error)
+	CreatePrescription(ctx context.Context, arg CreatePrescriptionParams) (Prescription, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreatePurchaseOrder(ctx context.Context, arg CreatePurchaseOrderParams) (PurchaseOrder, error)
 	CreateSale(ctx context.Context, arg CreateSaleParams) (Sale, error)
@@ -34,6 +39,8 @@ type Querier interface {
 	// row; zero rows means insufficient stock (used by FEFO dispensing).
 	DecrementBatchQuantity(ctx context.Context, arg DecrementBatchQuantityParams) (StockBatch, error)
 	GetBranch(ctx context.Context, id uuid.UUID) (Branch, error)
+	GetCustomer(ctx context.Context, id uuid.UUID) (Customer, error)
+	GetPrescription(ctx context.Context, id uuid.UUID) (Prescription, error)
 	GetProduct(ctx context.Context, id uuid.UUID) (Product, error)
 	GetPurchaseOrder(ctx context.Context, id uuid.UUID) (PurchaseOrder, error)
 	GetSale(ctx context.Context, id uuid.UUID) (Sale, error)
@@ -43,12 +50,15 @@ type Querier interface {
 	// Inventory read queries (per-branch stock, expiry & reorder alerts) ----------
 	ListBranchBatches(ctx context.Context, arg ListBranchBatchesParams) ([]ListBranchBatchesRow, error)
 	ListBranches(ctx context.Context, arg ListBranchesParams) ([]Branch, error)
+	ListCustomers(ctx context.Context, arg ListCustomersParams) ([]Customer, error)
 	// FEFO: batches with stock for a product at a branch, earliest expiry first,
 	// skipping already-expired stock. Locked FOR UPDATE so concurrent sales cannot
 	// oversell the same batch.
 	ListDispensableBatches(ctx context.Context, arg ListDispensableBatchesParams) ([]StockBatch, error)
 	ListLowStock(ctx context.Context, branchID uuid.UUID) ([]ListLowStockRow, error)
 	ListNearExpiryBatches(ctx context.Context, arg ListNearExpiryBatchesParams) ([]ListNearExpiryBatchesRow, error)
+	ListPrescriptionItems(ctx context.Context, prescriptionID uuid.UUID) ([]PrescriptionItem, error)
+	ListPrescriptions(ctx context.Context, arg ListPrescriptionsParams) ([]Prescription, error)
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
 	ListPurchaseOrderItems(ctx context.Context, poID uuid.UUID) ([]PurchaseOrderItem, error)
 	ListPurchaseOrders(ctx context.Context, arg ListPurchaseOrdersParams) ([]PurchaseOrder, error)
@@ -56,6 +66,9 @@ type Querier interface {
 	ListSales(ctx context.Context, arg ListSalesParams) ([]Sale, error)
 	ListSuppliers(ctx context.Context, arg ListSuppliersParams) ([]Supplier, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
+	// Mark a prescription dispensed once. The guard makes re-dispensing a no-op
+	// (0 rows), preventing a prescription from being filled twice.
+	MarkPrescriptionDispensed(ctx context.Context, id uuid.UUID) (Prescription, error)
 	// Mark a PO received. The status guard makes double-receipt a no-op (0 rows),
 	// so stock is never added twice for the same order.
 	MarkPurchaseOrderReceived(ctx context.Context, id uuid.UUID) (PurchaseOrder, error)
@@ -65,6 +78,7 @@ type Querier interface {
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error
 	StockOnHand(ctx context.Context, arg StockOnHandParams) (int64, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
+	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
 	UpdateSupplier(ctx context.Context, arg UpdateSupplierParams) (Supplier, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)

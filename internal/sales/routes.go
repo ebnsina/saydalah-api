@@ -10,12 +10,18 @@ import (
 // Module bundles the sales handler and route registration.
 type Module struct {
 	handler *Handler
+	svc     *Service
 }
 
 // New wires the sales module: store → repository → service → handler.
 func New(s *store.Store) *Module {
-	return &Module{handler: NewHandler(NewService(NewRepository(s)))}
+	svc := NewService(NewRepository(s))
+	return &Module{handler: NewHandler(svc), svc: svc}
 }
+
+// Service exposes the sales service so other modules (prescription dispensing)
+// can reuse FEFO checkout.
+func (m *Module) Service() *Service { return m.svc }
 
 // Mount registers point-of-sale routes. Cashiers, pharmacists, and managers can
 // all ring up sales.

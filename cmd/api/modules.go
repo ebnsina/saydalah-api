@@ -12,9 +12,11 @@ import (
 	"github.com/ebnsina/saydalah-api/internal/branch"
 	"github.com/ebnsina/saydalah-api/internal/catalog"
 	"github.com/ebnsina/saydalah-api/internal/config"
+	"github.com/ebnsina/saydalah-api/internal/customer"
 	"github.com/ebnsina/saydalah-api/internal/httpx"
 	"github.com/ebnsina/saydalah-api/internal/inventory"
 	"github.com/ebnsina/saydalah-api/internal/middleware"
+	"github.com/ebnsina/saydalah-api/internal/prescription"
 	"github.com/ebnsina/saydalah-api/internal/purchasing"
 	"github.com/ebnsina/saydalah-api/internal/sales"
 	"github.com/ebnsina/saydalah-api/internal/server"
@@ -43,7 +45,12 @@ func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager)
 		supplier.New(st).Mount(r)
 		purchasing.New(st).Mount(r)
 		inventory.New(st).Mount(r)
-		sales.New(st).Mount(r)
+
+		salesMod := sales.New(st)
+		salesMod.Mount(r)
+
+		customer.New(st).Mount(r)
+		prescription.New(st, salesMod.Service()).Mount(r)
 	})
 }
 
