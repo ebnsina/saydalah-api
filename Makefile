@@ -58,3 +58,9 @@ lint: ## Run golangci-lint (install: https://golangci-lint.run)
 
 migrate-status: ## Show migration status (requires DATABASE_URL)
 	$(GOOSE) -dir internal/migrations postgres "$(DATABASE_URL)" status
+
+seed: ## Seed the running API with generous test data (needs a reachable API_BASE)
+	API_BASE=$${API_BASE:-http://localhost:8080/api/v1} \
+	ADMIN_EMAIL=$${ADMIN_EMAIL:-admin@saydalah.test} \
+	ADMIN_PASSWORD=$${ADMIN_PASSWORD:-supersecret123} \
+	python3 scripts/seed.py
