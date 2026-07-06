@@ -62,7 +62,7 @@ INSERT INTO sales (
     branch_id, cashier_id, customer_id, prescription_id,
     subtotal, discount, total, paid, payment_method
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at
+RETURNING id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by
 `
 
 type CreateSaleParams struct {
@@ -102,12 +102,14 @@ func (q *Queries) CreateSale(ctx context.Context, arg CreateSaleParams) (Sale, e
 		&i.Paid,
 		&i.PaymentMethod,
 		&i.CreatedAt,
+		&i.VoidedAt,
+		&i.VoidedBy,
 	)
 	return i, err
 }
 
 const getSale = `-- name: GetSale :one
-SELECT id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at FROM sales WHERE id = $1
+SELECT id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by FROM sales WHERE id = $1
 `
 
 func (q *Queries) GetSale(ctx context.Context, id uuid.UUID) (Sale, error) {
@@ -125,6 +127,8 @@ func (q *Queries) GetSale(ctx context.Context, id uuid.UUID) (Sale, error) {
 		&i.Paid,
 		&i.PaymentMethod,
 		&i.CreatedAt,
+		&i.VoidedAt,
+		&i.VoidedBy,
 	)
 	return i, err
 }
@@ -166,7 +170,7 @@ func (q *Queries) ListSaleItems(ctx context.Context, saleID uuid.UUID) ([]SaleIt
 }
 
 const listSales = `-- name: ListSales :many
-SELECT id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at FROM sales
+SELECT id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by FROM sales
 WHERE branch_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3
@@ -199,6 +203,8 @@ func (q *Queries) ListSales(ctx context.Context, arg ListSalesParams) ([]Sale, e
 			&i.Paid,
 			&i.PaymentMethod,
 			&i.CreatedAt,
+			&i.VoidedAt,
+			&i.VoidedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -208,6 +214,41 @@ func (q *Queries) ListSales(ctx context.Context, arg ListSalesParams) ([]Sale, e
 		return nil, err
 	}
 	return items, nil
+}
+
+const markSaleVoided = `-- name: MarkSaleVoided :one
+UPDATE sales
+SET voided_at = now(), voided_by = $2
+WHERE id = $1 AND voided_at IS NULL
+RETURNING id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by
+`
+
+type MarkSaleVoidedParams struct {
+	ID       uuid.UUID  `json:"id"`
+	VoidedBy *uuid.UUID `json:"voided_by"`
+}
+
+// Mark a sale voided. The guard makes a second void a no-op (0 rows), so a
+// sale is never reversed twice.
+func (q *Queries) MarkSaleVoided(ctx context.Context, arg MarkSaleVoidedParams) (Sale, error) {
+	row := q.db.QueryRow(ctx, markSaleVoided, arg.ID, arg.VoidedBy)
+	var i Sale
+	err := row.Scan(
+		&i.ID,
+		&i.BranchID,
+		&i.CashierID,
+		&i.CustomerID,
+		&i.PrescriptionID,
+		&i.Subtotal,
+		&i.Discount,
+		&i.Total,
+		&i.Paid,
+		&i.PaymentMethod,
+		&i.CreatedAt,
+		&i.VoidedAt,
+		&i.VoidedBy,
+	)
+	return i, err
 }
 
 const sumReturnedForSaleBatch = `-- name: SumReturnedForSaleBatch :one

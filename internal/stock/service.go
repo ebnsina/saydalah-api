@@ -69,6 +69,9 @@ func (s *Service) validateSaleReturn(ctx context.Context, id auth.Identity, in R
 	if !id.CanAccessBranch(sale.BranchID) {
 		return httpx.ErrForbidden
 	}
+	if sale.VoidedAt != nil {
+		return fmt.Errorf("sale has been voided: %w", httpx.ErrConflict)
+	}
 
 	items, err := s.repo.ListSaleItems(ctx, sale.ID)
 	if err != nil {

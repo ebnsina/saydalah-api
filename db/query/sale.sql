@@ -36,3 +36,11 @@ SELECT count(*) FROM sales WHERE branch_id = $1;
 SELECT COALESCE(SUM(qty), 0)::bigint AS returned
 FROM stock_movements
 WHERE type = 'return' AND ref_type = 'sale' AND ref_id = $1 AND batch_id = $2;
+
+-- Mark a sale voided. The guard makes a second void a no-op (0 rows), so a
+-- sale is never reversed twice.
+-- name: MarkSaleVoided :one
+UPDATE sales
+SET voided_at = now(), voided_by = $2
+WHERE id = $1 AND voided_at IS NULL
+RETURNING *;

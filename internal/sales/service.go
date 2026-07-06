@@ -184,6 +184,76 @@ func (s *Service) Get(ctx context.Context, id auth.Identity, saleID uuid.UUID) (
 	return toResponse(sale, items), nil
 }
 
+// Void reverses a sale: it restores each line's outstanding quantity (what was
+// sold minus what has already been returned) to its batch, records sale_void
+// return movements, and marks the sale voided. It is idempotent-guarded — a
+// second void is a conflict — and refuses a sale that already has a partial
+// return reconciled, since those are handled per-line by stock returns.
+func (s *Service) Void(ctx context.Context, id auth.Identity, saleID uuid.UUID) (Response, error) {
+	sale, err := s.repo.GetSale(ctx, saleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Response{}, httpx.ErrNotFound
+	}
+	if err != nil {
+		return Response{}, fmt.Errorf("sales: get: %w", err)
+	}
+	if !id.CanAccessBranch(sale.BranchID) {
+		return Response{}, httpx.ErrForbidden
+	}
+	if sale.VoidedAt != nil {
+		return Response{}, fmt.Errorf("sale already voided: %w", httpx.ErrConflict)
+	}
+
+	items, err := s.repo.ListItems(ctx, sale.ID)
+	if err != nil {
+		return Response{}, fmt.Errorf("sales: items: %w", err)
+	}
+
+	var updated store.Sale
+	err = s.repo.Tx(ctx, func(tx Repository) error {
+		updated, err = tx.MarkVoided(ctx, store.MarkSaleVoidedParams{ID: sale.ID, VoidedBy: actor(id)})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("sale already voided: %w", httpx.ErrConflict)
+		}
+		if err != nil {
+			return err
+		}
+
+		for _, it := range items {
+			batchID := it.BatchID
+			returned, err := tx.SumReturned(ctx, store.SumReturnedForSaleBatchParams{RefID: &sale.ID, BatchID: &batchID})
+			if err != nil {
+				return err
+			}
+			outstanding := int64(it.Qty) - returned
+			if outstanding <= 0 {
+				continue // fully returned already
+			}
+			if _, err := tx.AdjustBatch(ctx, store.AdjustBatchQuantityParams{ID: batchID, Delta: int32(outstanding)}); err != nil {
+				return err
+			}
+			saleRef := sale.ID
+			if _, err := tx.RecordMovement(ctx, store.RecordStockMovementParams{
+				ProductID: it.ProductID,
+				BranchID:  sale.BranchID,
+				BatchID:   &batchID,
+				Type:      store.MovementTypeReturn,
+				Qty:       int32(outstanding),
+				RefType:   "sale_void",
+				RefID:     &saleRef,
+				CreatedBy: actor(id),
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return Response{}, wrap("void", err)
+	}
+	return toResponse(updated, items), nil
+}
+
 // List returns a page of sales for the caller's branch.
 func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *uuid.UUID, p httpx.Pagination) (ListResult, error) {
 	branchID, err := id.ResolveBranch(requestedBranch)

@@ -274,6 +274,8 @@ type Sale struct {
 	Paid           decimal.Decimal `json:"paid"`
 	PaymentMethod  PaymentMethod   `json:"payment_method"`
 	CreatedAt      time.Time       `json:"created_at"`
+	VoidedAt       *time.Time      `json:"voided_at"`
+	VoidedBy       *uuid.UUID      `json:"voided_by"`
 }
 
 type SaleItem struct {

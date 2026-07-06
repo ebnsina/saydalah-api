@@ -94,6 +94,18 @@ func (f *fakeRepo) DecrementBatch(_ context.Context, arg store.DecrementBatchQua
 	return store.StockBatch{}, pgx.ErrNoRows
 }
 
+func (f *fakeRepo) AdjustBatch(_ context.Context, _ store.AdjustBatchQuantityParams) (store.StockBatch, error) {
+	return store.StockBatch{}, nil
+}
+
+func (f *fakeRepo) SumReturned(_ context.Context, _ store.SumReturnedForSaleBatchParams) (int64, error) {
+	return 0, nil
+}
+
+func (f *fakeRepo) MarkVoided(_ context.Context, _ store.MarkSaleVoidedParams) (store.Sale, error) {
+	return store.Sale{}, nil
+}
+
 func (f *fakeRepo) RecordMovement(_ context.Context, arg store.RecordStockMovementParams) (store.StockMovement, error) {
 	f.movements = append(f.movements, arg)
 	return store.StockMovement{}, nil

@@ -44,6 +44,7 @@ type Response struct {
 	Total          decimal.Decimal     `json:"total"`
 	Paid           decimal.Decimal     `json:"paid"`
 	PaymentMethod  store.PaymentMethod `json:"payment_method"`
+	VoidedAt       *time.Time          `json:"voided_at"`
 	CreatedAt      time.Time           `json:"created_at"`
 	Items          []ItemResponse      `json:"items"`
 }
@@ -68,6 +69,7 @@ func toResponse(s store.Sale, items []store.SaleItem) Response {
 		Total:          s.Total,
 		Paid:           s.Paid,
 		PaymentMethod:  s.PaymentMethod,
+		VoidedAt:       s.VoidedAt,
 		CreatedAt:      s.CreatedAt,
 		Items:          make([]ItemResponse, len(items)),
 	}

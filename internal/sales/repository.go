@@ -13,7 +13,10 @@ import (
 type Repository interface {
 	DispensableBatches(ctx context.Context, arg store.ListDispensableBatchesParams) ([]store.StockBatch, error)
 	DecrementBatch(ctx context.Context, arg store.DecrementBatchQuantityParams) (store.StockBatch, error)
+	AdjustBatch(ctx context.Context, arg store.AdjustBatchQuantityParams) (store.StockBatch, error)
 	RecordMovement(ctx context.Context, arg store.RecordStockMovementParams) (store.StockMovement, error)
+	SumReturned(ctx context.Context, arg store.SumReturnedForSaleBatchParams) (int64, error)
+	MarkVoided(ctx context.Context, arg store.MarkSaleVoidedParams) (store.Sale, error)
 	CreateSale(ctx context.Context, arg store.CreateSaleParams) (store.Sale, error)
 	AddItem(ctx context.Context, arg store.AddSaleItemParams) (store.SaleItem, error)
 	GetSale(ctx context.Context, id uuid.UUID) (store.Sale, error)
@@ -49,8 +52,20 @@ func (r *storeRepository) DecrementBatch(ctx context.Context, arg store.Decremen
 	return r.q.DecrementBatchQuantity(ctx, arg)
 }
 
+func (r *storeRepository) AdjustBatch(ctx context.Context, arg store.AdjustBatchQuantityParams) (store.StockBatch, error) {
+	return r.q.AdjustBatchQuantity(ctx, arg)
+}
+
 func (r *storeRepository) RecordMovement(ctx context.Context, arg store.RecordStockMovementParams) (store.StockMovement, error) {
 	return r.q.RecordStockMovement(ctx, arg)
+}
+
+func (r *storeRepository) SumReturned(ctx context.Context, arg store.SumReturnedForSaleBatchParams) (int64, error) {
+	return r.q.SumReturnedForSaleBatch(ctx, arg)
+}
+
+func (r *storeRepository) MarkVoided(ctx context.Context, arg store.MarkSaleVoidedParams) (store.Sale, error) {
+	return r.q.MarkSaleVoided(ctx, arg)
 }
 
 func (r *storeRepository) CreateSale(ctx context.Context, arg store.CreateSaleParams) (store.Sale, error) {

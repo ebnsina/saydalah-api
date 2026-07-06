@@ -31,5 +31,9 @@ func (m *Module) Mount(r chi.Router) {
 		r.Post("/", m.handler.create)
 		r.Get("/", m.handler.list)
 		r.Get("/{id}", m.handler.get)
+
+		// Voiding a sale (refund) is restricted to pharmacists/managers.
+		r.With(middleware.RequireRole(store.UserRolePharmacist, store.UserRoleManager)).
+			Post("/{id}/void", m.handler.void)
 	})
 }

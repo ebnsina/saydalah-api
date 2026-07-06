@@ -82,6 +82,9 @@ type Querier interface {
 	// Mark a PO received. The status guard makes double-receipt a no-op (0 rows),
 	// so stock is never added twice for the same order.
 	MarkPurchaseOrderReceived(ctx context.Context, id uuid.UUID) (PurchaseOrder, error)
+	// Mark a sale voided. The guard makes a second void a no-op (0 rows), so a
+	// sale is never reversed twice.
+	MarkSaleVoided(ctx context.Context, arg MarkSaleVoidedParams) (Sale, error)
 	// A trivial query used to verify database connectivity and the query pipeline.
 	Now(ctx context.Context) (time.Time, error)
 	RecordStockMovement(ctx context.Context, arg RecordStockMovementParams) (StockMovement, error)

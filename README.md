@@ -79,7 +79,7 @@ Mounted under `/api/v1`, all behind a JWT except `POST /auth/login`:
 - `purchase-orders` — ordering + `POST /{id}/receive` (creates stock batches)
 - `inventory` — `batches`, `near-expiry`, `low-stock`, `on-hand/{productID}`
 - `stock` — `POST /stock/adjustments`, `POST /stock/returns`, `POST /stock/transfers` (inter-branch), `POST /stock/stock-takes` (physical count), `GET /stock/movements` (audit ledger)
-- `sales` — `POST /sales` FEFO checkout, list/get
+- `sales` — `POST /sales` FEFO checkout, list/get, `POST /sales/{id}/void` (refund + restore stock)
 - `customers`, `prescriptions` — `POST /prescriptions/{id}/dispense` reuses FEFO
 - `reports` — `sales-summary`, `sales-daily`, `inventory-valuation`, `top-products` (manager/admin)
 

@@ -254,6 +254,47 @@ func TestStockTakeReconciliation(t *testing.T) {
 	}
 }
 
+func TestSaleVoidRestoresStock(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	branchID, productID, supplierID := e.seedBranchAndProduct(t)
+	e.receiveTwoBatches(t, branchID, productID, supplierID) // 110 on hand
+
+	sale, err := e.sales.Create(ctx, e.admin, sales.CreateRequest{
+		BranchID:      &branchID,
+		PaymentMethod: store.PaymentMethodCash,
+		Lines:         []sales.LineInput{{ProductID: productID, Qty: 15}},
+	})
+	if err != nil {
+		t.Fatalf("sale: %v", err)
+	}
+	if got := e.onHand(t, branchID, productID); got != 95 {
+		t.Fatalf("on-hand after sale = %d, want 95", got)
+	}
+
+	voided, err := e.sales.Void(ctx, e.admin, sale.ID)
+	if err != nil {
+		t.Fatalf("void: %v", err)
+	}
+	if voided.VoidedAt == nil {
+		t.Error("voided sale should carry voided_at")
+	}
+	// All 15 units restored.
+	if got := e.onHand(t, branchID, productID); got != 110 {
+		t.Errorf("on-hand after void = %d, want 110", got)
+	}
+	// A second void is a conflict.
+	if _, err := e.sales.Void(ctx, e.admin, sale.ID); !errors.Is(err, httpx.ErrConflict) {
+		t.Errorf("second void should conflict, got %v", err)
+	}
+	// A return against a voided sale is rejected.
+	if _, err := e.stock.Return(ctx, e.admin, stock.ReturnRequest{
+		BatchID: sale.Items[0].BatchID, Qty: 1, SaleID: &sale.ID,
+	}); !errors.Is(err, httpx.ErrConflict) {
+		t.Errorf("return against voided sale should conflict, got %v", err)
+	}
+}
+
 func TestSaleLinkedReturnCap(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()

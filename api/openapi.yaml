@@ -373,6 +373,20 @@ paths:
         "201": { description: Sale completed }
         "409": { description: Insufficient stock, $ref: "#/components/responses/Error" }
 
+  /sales/{id}/void:
+    post:
+      tags: [sales]
+      summary: Void/refund a sale (pharmacist/manager)
+      description: >
+        Restores each line's outstanding quantity (sold minus already-returned)
+        to its batch, records sale_void return movements, and marks the sale
+        voided. A second void is a conflict; returns against a voided sale are
+        rejected.
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200": { description: Voided (returns the sale with voided_at) }
+        "409": { $ref: "#/components/responses/Error" }
+
   /customers:
     get: { tags: [customers], summary: List/search customers, responses: { "200": { description: OK } } }
     post: { tags: [customers], summary: Add a customer, responses: { "201": { description: Created } } }
