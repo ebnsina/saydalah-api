@@ -18,6 +18,7 @@ import (
 	"github.com/ebnsina/saydalah-api/internal/middleware"
 	"github.com/ebnsina/saydalah-api/internal/prescription"
 	"github.com/ebnsina/saydalah-api/internal/purchasing"
+	"github.com/ebnsina/saydalah-api/internal/reporting"
 	"github.com/ebnsina/saydalah-api/internal/sales"
 	"github.com/ebnsina/saydalah-api/internal/server"
 	"github.com/ebnsina/saydalah-api/internal/store"
@@ -51,6 +52,7 @@ func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager)
 
 		customer.New(st).Mount(r)
 		prescription.New(st, salesMod.Service()).Mount(r)
+		reporting.New(st).Mount(r)
 	})
 }
 

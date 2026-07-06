@@ -47,6 +47,7 @@ type Querier interface {
 	GetSupplier(ctx context.Context, id uuid.UUID) (Supplier, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	InventoryValuation(ctx context.Context, branchID uuid.UUID) (InventoryValuationRow, error)
 	// Inventory read queries (per-branch stock, expiry & reorder alerts) ----------
 	ListBranchBatches(ctx context.Context, arg ListBranchBatchesParams) ([]ListBranchBatchesRow, error)
 	ListBranches(ctx context.Context, arg ListBranchesParams) ([]Branch, error)
@@ -75,8 +76,11 @@ type Querier interface {
 	// A trivial query used to verify database connectivity and the query pipeline.
 	Now(ctx context.Context) (time.Time, error)
 	RecordStockMovement(ctx context.Context, arg RecordStockMovementParams) (StockMovement, error)
+	SalesDaily(ctx context.Context, arg SalesDailyParams) ([]SalesDailyRow, error)
+	SalesSummary(ctx context.Context, arg SalesSummaryParams) (SalesSummaryRow, error)
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error
 	StockOnHand(ctx context.Context, arg StockOnHandParams) (int64, error)
+	TopSellingProducts(ctx context.Context, arg TopSellingProductsParams) ([]TopSellingProductsRow, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error)
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (Product, error)
