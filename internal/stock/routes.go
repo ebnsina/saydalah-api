@@ -28,6 +28,7 @@ func (m *Module) Mount(r chi.Router) {
 			r.Use(middleware.RequireRole(store.UserRolePharmacist, store.UserRoleManager))
 			r.Post("/adjustments", m.handler.adjust)
 			r.Post("/returns", m.handler.returnStock)
+			r.Post("/transfers", m.handler.transfer)
 		})
 	})
 }

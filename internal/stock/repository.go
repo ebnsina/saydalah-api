@@ -13,6 +13,7 @@ import (
 type Repository interface {
 	GetBatch(ctx context.Context, id uuid.UUID) (store.StockBatch, error)
 	AdjustBatch(ctx context.Context, arg store.AdjustBatchQuantityParams) (store.StockBatch, error)
+	CreateBatch(ctx context.Context, arg store.CreateStockBatchParams) (store.StockBatch, error)
 	RecordMovement(ctx context.Context, arg store.RecordStockMovementParams) (store.StockMovement, error)
 	ListMovements(ctx context.Context, arg store.ListStockMovementsParams) ([]store.ListStockMovementsRow, error)
 	CountMovements(ctx context.Context, arg store.CountStockMovementsParams) (int64, error)
@@ -42,6 +43,10 @@ func (r *storeRepository) GetBatch(ctx context.Context, id uuid.UUID) (store.Sto
 
 func (r *storeRepository) AdjustBatch(ctx context.Context, arg store.AdjustBatchQuantityParams) (store.StockBatch, error) {
 	return r.q.AdjustBatchQuantity(ctx, arg)
+}
+
+func (r *storeRepository) CreateBatch(ctx context.Context, arg store.CreateStockBatchParams) (store.StockBatch, error) {
+	return r.q.CreateStockBatch(ctx, arg)
 }
 
 func (r *storeRepository) RecordMovement(ctx context.Context, arg store.RecordStockMovementParams) (store.StockMovement, error) {

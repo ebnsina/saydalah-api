@@ -102,6 +102,87 @@ func (s *Service) apply(
 	return batchResponse(updated), nil
 }
 
+// Transfer moves qty units of a batch to another branch. In one transaction it
+// decrements the source batch, records a transfer_out movement, creates a
+// matching batch at the destination (same product, batch number, expiry, and
+// prices), and records a transfer_in movement. Insufficient source stock or an
+// unknown destination branch fails the whole transfer.
+func (s *Service) Transfer(ctx context.Context, id auth.Identity, in TransferRequest) (TransferResponse, error) {
+	src, err := s.repo.GetBatch(ctx, in.BatchID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TransferResponse{}, httpx.ErrNotFound
+	}
+	if err != nil {
+		return TransferResponse{}, fmt.Errorf("stock: get batch: %w", err)
+	}
+	if !id.CanAccessBranch(src.BranchID) {
+		return TransferResponse{}, httpx.ErrForbidden
+	}
+	if in.ToBranchID == src.BranchID {
+		return TransferResponse{}, fmt.Errorf("destination must differ from source branch: %w", httpx.ErrInvalidInput)
+	}
+
+	var depleted, created store.StockBatch
+	err = s.repo.Tx(ctx, func(tx Repository) error {
+		depleted, err = tx.AdjustBatch(ctx, store.AdjustBatchQuantityParams{ID: src.ID, Delta: -in.Qty})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("source batch %s: %w", src.ID, httpx.ErrInsufficientStock)
+		}
+		if err != nil {
+			return err
+		}
+		srcRef := src.ID
+		if _, err := tx.RecordMovement(ctx, store.RecordStockMovementParams{
+			ProductID: src.ProductID, BranchID: src.BranchID, BatchID: &srcRef,
+			Type: store.MovementTypeTransferOut, Qty: -in.Qty,
+			RefType: "transfer", Note: in.Note,
+		}); err != nil {
+			return err
+		}
+
+		created, err = tx.CreateBatch(ctx, store.CreateStockBatchParams{
+			ProductID:  src.ProductID,
+			BranchID:   in.ToBranchID,
+			BatchNo:    src.BatchNo,
+			Quantity:   in.Qty,
+			CostPrice:  src.CostPrice,
+			SalePrice:  src.SalePrice,
+			ExpiryDate: src.ExpiryDate,
+		})
+		if store.IsForeignKeyViolation(err) {
+			return fmt.Errorf("destination branch does not exist: %w", httpx.ErrInvalidInput)
+		}
+		if err != nil {
+			return err
+		}
+		dstRef := created.ID
+		if _, err := tx.RecordMovement(ctx, store.RecordStockMovementParams{
+			ProductID: src.ProductID, BranchID: in.ToBranchID, BatchID: &dstRef,
+			Type: store.MovementTypeTransferIn, Qty: in.Qty,
+			RefType: "transfer", Note: in.Note,
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		if isDomain(err) {
+			return TransferResponse{}, err
+		}
+		return TransferResponse{}, fmt.Errorf("stock: transfer: %w", err)
+	}
+	return TransferResponse{Source: batchResponse(depleted), Destination: batchResponse(created)}, nil
+}
+
+// isDomain reports whether err is one of the client-facing sentinels httpx maps.
+func isDomain(err error) bool {
+	return errors.Is(err, httpx.ErrInvalidInput) ||
+		errors.Is(err, httpx.ErrInsufficientStock) ||
+		errors.Is(err, httpx.ErrConflict) ||
+		errors.Is(err, httpx.ErrNotFound) ||
+		errors.Is(err, httpx.ErrForbidden)
+}
+
 // Movements returns a page of the movement ledger for the caller's branch,
 // optionally filtered to a single product.
 func (s *Service) Movements(ctx context.Context, id auth.Identity, branch, product *uuid.UUID, p httpx.Pagination) (MovementsResult, error) {

@@ -55,6 +55,25 @@ func (h *Handler) returnStock(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, res)
 }
 
+func (h *Handler) transfer(w http.ResponseWriter, r *http.Request) {
+	id, ok := auth.IdentityFrom(r.Context())
+	if !ok {
+		httpx.Error(w, r, httpx.ErrUnauthorized)
+		return
+	}
+	var in TransferRequest
+	if err := httpx.Decode(w, r, &in); err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	res, err := h.svc.Transfer(r.Context(), id, in)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, res)
+}
+
 func (h *Handler) movements(w http.ResponseWriter, r *http.Request) {
 	id, ok := auth.IdentityFrom(r.Context())
 	if !ok {

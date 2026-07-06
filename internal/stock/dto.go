@@ -30,6 +30,23 @@ type ReturnRequest struct {
 	Note    string     `json:"note"     validate:"max=255"`
 }
 
+// TransferRequest moves stock from a source batch to another branch. The source
+// branch is the batch's own branch (the caller must be able to access it); the
+// destination must be a different, existing branch.
+type TransferRequest struct {
+	BatchID    uuid.UUID `json:"batch_id"     validate:"required"`
+	ToBranchID uuid.UUID `json:"to_branch_id" validate:"required"`
+	Qty        int32     `json:"qty"          validate:"required,gt=0"`
+	Note       string    `json:"note"         validate:"max=255"`
+}
+
+// TransferResponse is the result of a transfer: the depleted source batch and
+// the newly created destination batch.
+type TransferResponse struct {
+	Source      BatchResponse `json:"source"`
+	Destination BatchResponse `json:"destination"`
+}
+
 // BatchResponse is the batch state after a write.
 type BatchResponse struct {
 	ID         uuid.UUID `json:"id"`

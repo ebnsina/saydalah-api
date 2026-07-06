@@ -272,6 +272,29 @@ paths:
                 note: { type: string }
       responses:
         "200": { description: Returned (returns new batch state) }
+  /stock/transfers:
+    post:
+      tags: [stock]
+      summary: Transfer stock to another branch (pharmacist/manager)
+      description: >
+        Decrements the source batch, creates a matching batch at the
+        destination branch, and records transfer_out/transfer_in movements.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [batch_id, to_branch_id, qty]
+              properties:
+                batch_id: { type: string, format: uuid }
+                to_branch_id: { type: string, format: uuid }
+                qty: { type: integer, minimum: 1 }
+                note: { type: string }
+      responses:
+        "200": { description: Transferred (returns source and destination batches) }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { description: Insufficient source stock, $ref: "#/components/responses/Error" }
   /stock/movements:
     get:
       tags: [stock]
