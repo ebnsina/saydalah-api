@@ -1,0 +1,18 @@
+# Keep the build context small and secrets out of images.
+.git
+.github
+.gitignore
+.env
+*.local
+bin/
+tmp/
+/private
+docs/
+data/
+README.md
+api/openapi.yaml
+Makefile
+docker-compose.yml
+Dockerfile
+.dockerignore
+.golangci.yml

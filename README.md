@@ -58,6 +58,24 @@ curl localhost:8080/healthz   # {"status":"ok"}
 curl localhost:8080/readyz    # {"status":"ready"} once the DB is reachable
 ```
 
+## Docker / deployment
+
+The service is packaged as a **26 MB distroless** image (static binary, non-root). Migrations are
+embedded and applied at startup, so the container is fully self-contained.
+
+```bash
+make docker-build                 # build the image (saydalah-api:latest)
+
+# Run the whole stack (API + Postgres) in containers — the API talks to the db
+# service over the compose network, so it is unaffected by anything on host :5432.
+JWT_SECRET=... ADMIN_EMAIL=... ADMIN_PASSWORD=... make up
+curl localhost:8080/readyz
+make down
+```
+
+In production, supply `DATABASE_URL`, `JWT_SECRET`, and the other env vars from your platform's
+secret store; point liveness at `/healthz` and readiness at `/readyz`.
+
 ## Make targets
 
 `make help` lists them: `db-up`, `db-down`, `sqlc`, `run`, `build`, `test`, `tidy`, `fmt`, `lint`,

@@ -21,6 +21,15 @@ db-up: ## Start local Postgres
 db-down: ## Stop local Postgres
 	docker compose down
 
+docker-build: ## Build the API container image
+	docker build -t saydalah-api .
+
+up: ## Run the full stack (API + Postgres) in containers
+	docker compose --profile app up -d --build
+
+down: ## Stop the full stack
+	docker compose --profile app down
+
 sqlc: ## Regenerate type-safe DB code from SQL
 	$(SQLC) generate
 
