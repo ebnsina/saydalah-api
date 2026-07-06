@@ -183,7 +183,7 @@ func TestFEFODispensesEarliestExpiryFirst(t *testing.T) {
 	late := batch("aaaaaaaa-0000-0000-0000-000000000002", 100, "3.00", 365)
 	repo := newFakeRepo(late, early) // intentionally out of order
 
-	svc := NewService(repo)
+	svc := NewService(repo, decimal.Zero)
 	resp, err := svc.Create(context.Background(), cashier, CreateRequest{
 		PaymentMethod: store.PaymentMethodCash,
 		Lines:         []LineInput{{ProductID: testProduct, Qty: 15}},
@@ -215,7 +215,7 @@ func TestInsufficientStockRollsBack(t *testing.T) {
 	b := batch("aaaaaaaa-0000-0000-0000-000000000001", 5, "2.00", 30)
 	repo := newFakeRepo(b)
 
-	svc := NewService(repo)
+	svc := NewService(repo, decimal.Zero)
 	_, err := svc.Create(context.Background(), cashier, CreateRequest{
 		PaymentMethod: store.PaymentMethodCash,
 		Lines:         []LineInput{{ProductID: testProduct, Qty: 10}},
@@ -236,7 +236,7 @@ func TestExpiredStockIsSkipped(t *testing.T) {
 	expired := batch("aaaaaaaa-0000-0000-0000-000000000001", 100, "2.00", -1)
 	repo := newFakeRepo(expired)
 
-	svc := NewService(repo)
+	svc := NewService(repo, decimal.Zero)
 	_, err := svc.Create(context.Background(), cashier, CreateRequest{
 		PaymentMethod: store.PaymentMethodCash,
 		Lines:         []LineInput{{ProductID: testProduct, Qty: 1}},
@@ -251,7 +251,7 @@ func TestDiscountCannotExceedSubtotal(t *testing.T) {
 	b := batch("aaaaaaaa-0000-0000-0000-000000000001", 10, "2.00", 30)
 	repo := newFakeRepo(b)
 
-	svc := NewService(repo)
+	svc := NewService(repo, decimal.Zero)
 	_, err := svc.Create(context.Background(), cashier, CreateRequest{
 		PaymentMethod: store.PaymentMethodCash,
 		Discount:      dec("1000"),

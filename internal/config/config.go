@@ -32,6 +32,10 @@ type Config struct {
 	LoginRateRPS   float64 // per-client requests/sec on /auth/login
 	LoginRateBurst int     // per-client burst on /auth/login
 
+	// TaxRate is the sales tax/VAT rate as a fraction (e.g. 0.15 = 15%), applied
+	// to (subtotal - discount) at checkout. Default 0 = tax-free.
+	TaxRate float64
+
 	// Optional first-admin bootstrap. When both are set and the users table is
 	// empty, an admin account is created at startup so a fresh deployment is
 	// immediately usable. Leave unset in environments that seed users elsewhere.
@@ -58,6 +62,7 @@ func Load() (Config, error) {
 		RateLimitBurst:  p.intMin("RATE_LIMIT_BURST", 40, 1),
 		LoginRateRPS:    p.floatMin("LOGIN_RATE_RPS", 0.5, 0),
 		LoginRateBurst:  p.intMin("LOGIN_RATE_BURST", 5, 1),
+		TaxRate:         p.floatMin("TAX_RATE", 0, 0),
 		AdminEmail:      p.str("ADMIN_EMAIL", ""),
 		AdminPassword:   p.str("ADMIN_PASSWORD", ""),
 	}

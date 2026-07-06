@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
@@ -42,6 +43,12 @@ func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager,
 	api.Group(func(r chi.Router) {
 		r.Use(middleware.Authenticate(tm))
 
+		// Client-facing runtime settings (e.g. the tax rate) so the POS can
+		// preview totals; the API remains the source of truth at checkout.
+		r.Get("/meta", func(w http.ResponseWriter, _ *http.Request) {
+			httpx.JSON(w, http.StatusOK, map[string]any{"tax_rate": cfg.TaxRate})
+		})
+
 		authMod.MountProtected(r)
 		branch.New(st).Mount(r)
 		user.New(st).Mount(r)
@@ -51,7 +58,7 @@ func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager,
 		inventory.New(st).Mount(r)
 		stock.New(st).Mount(r)
 
-		salesMod := sales.New(st)
+		salesMod := sales.New(st, cfg.TaxRate)
 		salesMod.Mount(r)
 
 		customer.New(st).Mount(r)

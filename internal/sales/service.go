@@ -17,11 +17,14 @@ import (
 
 // Service holds point-of-sale business logic, notably FEFO dispensing.
 type Service struct {
-	repo Repository
+	repo    Repository
+	taxRate decimal.Decimal // fraction applied to (subtotal - discount)
 }
 
-// NewService constructs a sales Service.
-func NewService(repo Repository) *Service { return &Service{repo: repo} }
+// NewService constructs a sales Service with the given tax rate (0 = tax-free).
+func NewService(repo Repository, taxRate decimal.Decimal) *Service {
+	return &Service{repo: repo, taxRate: taxRate}
+}
 
 // actor returns a pointer to the acting user's ID for stamping created_by on
 // movement-ledger rows.
@@ -63,10 +66,12 @@ func (s *Service) Create(ctx context.Context, id auth.Identity, in CreateRequest
 			return err
 		}
 
-		total := subtotal.Sub(discount)
-		if total.IsNegative() {
+		taxable := subtotal.Sub(discount)
+		if taxable.IsNegative() {
 			return fmt.Errorf("discount exceeds subtotal: %w", httpx.ErrInvalidInput)
 		}
+		tax := taxable.Mul(s.taxRate).Round(2)
+		total := taxable.Add(tax)
 
 		sale, err = tx.CreateSale(ctx, store.CreateSaleParams{
 			BranchID:       branchID,
@@ -75,6 +80,7 @@ func (s *Service) Create(ctx context.Context, id auth.Identity, in CreateRequest
 			PrescriptionID: in.PrescriptionID,
 			Subtotal:       subtotal,
 			Discount:       discount,
+			Tax:            tax,
 			Total:          total,
 			Paid:           in.Paid,
 			PaymentMethod:  in.PaymentMethod,

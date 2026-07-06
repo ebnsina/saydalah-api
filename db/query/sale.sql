@@ -1,8 +1,8 @@
 -- name: CreateSale :one
 INSERT INTO sales (
     branch_id, cashier_id, customer_id, prescription_id,
-    subtotal, discount, total, paid, payment_method
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    subtotal, discount, tax, total, paid, payment_method
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: AddSaleItem :one

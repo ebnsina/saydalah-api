@@ -67,9 +67,9 @@ func (q *Queries) CountSales(ctx context.Context, arg CountSalesParams) (int64, 
 const createSale = `-- name: CreateSale :one
 INSERT INTO sales (
     branch_id, cashier_id, customer_id, prescription_id,
-    subtotal, discount, total, paid, payment_method
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by
+    subtotal, discount, tax, total, paid, payment_method
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by, tax
 `
 
 type CreateSaleParams struct {
@@ -79,6 +79,7 @@ type CreateSaleParams struct {
 	PrescriptionID *uuid.UUID      `json:"prescription_id"`
 	Subtotal       decimal.Decimal `json:"subtotal"`
 	Discount       decimal.Decimal `json:"discount"`
+	Tax            decimal.Decimal `json:"tax"`
 	Total          decimal.Decimal `json:"total"`
 	Paid           decimal.Decimal `json:"paid"`
 	PaymentMethod  PaymentMethod   `json:"payment_method"`
@@ -92,6 +93,7 @@ func (q *Queries) CreateSale(ctx context.Context, arg CreateSaleParams) (Sale, e
 		arg.PrescriptionID,
 		arg.Subtotal,
 		arg.Discount,
+		arg.Tax,
 		arg.Total,
 		arg.Paid,
 		arg.PaymentMethod,
@@ -111,12 +113,13 @@ func (q *Queries) CreateSale(ctx context.Context, arg CreateSaleParams) (Sale, e
 		&i.CreatedAt,
 		&i.VoidedAt,
 		&i.VoidedBy,
+		&i.Tax,
 	)
 	return i, err
 }
 
 const getSale = `-- name: GetSale :one
-SELECT id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by FROM sales WHERE id = $1
+SELECT id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by, tax FROM sales WHERE id = $1
 `
 
 func (q *Queries) GetSale(ctx context.Context, id uuid.UUID) (Sale, error) {
@@ -136,6 +139,7 @@ func (q *Queries) GetSale(ctx context.Context, id uuid.UUID) (Sale, error) {
 		&i.CreatedAt,
 		&i.VoidedAt,
 		&i.VoidedBy,
+		&i.Tax,
 	)
 	return i, err
 }
@@ -177,7 +181,7 @@ func (q *Queries) ListSaleItems(ctx context.Context, saleID uuid.UUID) ([]SaleIt
 }
 
 const listSales = `-- name: ListSales :many
-SELECT id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by FROM sales
+SELECT id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by, tax FROM sales
 WHERE branch_id = $1
   AND ($2::uuid IS NULL OR customer_id = $2)
 ORDER BY created_at DESC
@@ -219,6 +223,7 @@ func (q *Queries) ListSales(ctx context.Context, arg ListSalesParams) ([]Sale, e
 			&i.CreatedAt,
 			&i.VoidedAt,
 			&i.VoidedBy,
+			&i.Tax,
 		); err != nil {
 			return nil, err
 		}
@@ -234,7 +239,7 @@ const markSaleVoided = `-- name: MarkSaleVoided :one
 UPDATE sales
 SET voided_at = now(), voided_by = $2
 WHERE id = $1 AND voided_at IS NULL
-RETURNING id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by
+RETURNING id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by, tax
 `
 
 type MarkSaleVoidedParams struct {
@@ -261,6 +266,7 @@ func (q *Queries) MarkSaleVoided(ctx context.Context, arg MarkSaleVoidedParams) 
 		&i.CreatedAt,
 		&i.VoidedAt,
 		&i.VoidedBy,
+		&i.Tax,
 	)
 	return i, err
 }

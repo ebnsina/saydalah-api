@@ -285,6 +285,7 @@ type Sale struct {
 	CreatedAt      time.Time       `json:"created_at"`
 	VoidedAt       *time.Time      `json:"voided_at"`
 	VoidedBy       *uuid.UUID      `json:"voided_by"`
+	Tax            decimal.Decimal `json:"tax"`
 }
 
 type SaleItem struct {

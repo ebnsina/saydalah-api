@@ -41,6 +41,7 @@ type Response struct {
 	PrescriptionID *uuid.UUID          `json:"prescription_id"`
 	Subtotal       decimal.Decimal     `json:"subtotal"`
 	Discount       decimal.Decimal     `json:"discount"`
+	Tax            decimal.Decimal     `json:"tax"`
 	Total          decimal.Decimal     `json:"total"`
 	Paid           decimal.Decimal     `json:"paid"`
 	PaymentMethod  store.PaymentMethod `json:"payment_method"`
@@ -66,6 +67,7 @@ func toResponse(s store.Sale, items []store.SaleItem) Response {
 		PrescriptionID: s.PrescriptionID,
 		Subtotal:       s.Subtotal,
 		Discount:       s.Discount,
+		Tax:            s.Tax,
 		Total:          s.Total,
 		Paid:           s.Paid,
 		PaymentMethod:  s.PaymentMethod,
