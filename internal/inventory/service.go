@@ -104,3 +104,36 @@ func (s *Service) OnHand(ctx context.Context, id auth.Identity, requestedBranch 
 	}
 	return OnHandResponse{ProductID: productID, BranchID: branchID, OnHand: qty}, nil
 }
+
+// StockByBranch returns a product's on-hand quantity in every active branch.
+func (s *Service) StockByBranch(ctx context.Context, productID uuid.UUID) ([]BranchStockResponse, error) {
+	rows, err := s.repo.StockByBranch(ctx, productID)
+	if err != nil {
+		return nil, fmt.Errorf("inventory: stock by branch: %w", err)
+	}
+	out := make([]BranchStockResponse, len(rows))
+	for i, r := range rows {
+		out[i] = BranchStockResponse{BranchID: r.BranchID, BranchName: r.BranchName, OnHand: r.OnHand}
+	}
+	return out, nil
+}
+
+// ProductBatches returns a product's in-stock batches at the caller's branch.
+func (s *Service) ProductBatches(ctx context.Context, id auth.Identity, requestedBranch *uuid.UUID, productID uuid.UUID) ([]BatchResponse, error) {
+	branchID, err := id.ResolveBranch(requestedBranch)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.repo.ProductBatches(ctx, store.ListProductBatchesParams{BranchID: branchID, ProductID: productID})
+	if err != nil {
+		return nil, fmt.Errorf("inventory: product batches: %w", err)
+	}
+	out := make([]BatchResponse, len(rows))
+	for i, b := range rows {
+		out[i] = BatchResponse{
+			ID: b.ID, ProductID: b.ProductID, BatchNo: b.BatchNo,
+			Quantity: b.Quantity, SalePrice: b.SalePrice, ExpiryDate: b.ExpiryDate,
+		}
+	}
+	return out, nil
+}

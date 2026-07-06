@@ -389,6 +389,48 @@ func (q *Queries) ListNearExpiryBatches(ctx context.Context, arg ListNearExpiryB
 	return items, nil
 }
 
+const listProductBatches = `-- name: ListProductBatches :many
+SELECT id, product_id, branch_id, batch_no, quantity, cost_price, sale_price, expiry_date, received_at FROM stock_batches
+WHERE branch_id = $1 AND product_id = $2 AND quantity > 0
+ORDER BY expiry_date ASC
+`
+
+type ListProductBatchesParams struct {
+	BranchID  uuid.UUID `json:"branch_id"`
+	ProductID uuid.UUID `json:"product_id"`
+}
+
+// All in-stock batches of a product at a branch (detail view; not FEFO-locked).
+func (q *Queries) ListProductBatches(ctx context.Context, arg ListProductBatchesParams) ([]StockBatch, error) {
+	rows, err := q.db.Query(ctx, listProductBatches, arg.BranchID, arg.ProductID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []StockBatch{}
+	for rows.Next() {
+		var i StockBatch
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.BranchID,
+			&i.BatchNo,
+			&i.Quantity,
+			&i.CostPrice,
+			&i.SalePrice,
+			&i.ExpiryDate,
+			&i.ReceivedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStockMovements = `-- name: ListStockMovements :many
 SELECT sm.id, sm.product_id, sm.branch_id, sm.batch_id, sm.type, sm.qty, sm.ref_type, sm.ref_id, sm.note, sm.created_at, sm.created_by, p.name AS product_name, u.full_name AS created_by_name
 FROM stock_movements sm
@@ -579,4 +621,41 @@ func (q *Queries) StockOnHand(ctx context.Context, arg StockOnHandParams) (int64
 	var on_hand int64
 	err := row.Scan(&on_hand)
 	return on_hand, err
+}
+
+const stockOnHandByBranch = `-- name: StockOnHandByBranch :many
+SELECT b.id AS branch_id, b.name AS branch_name,
+       COALESCE(SUM(sb.quantity), 0)::bigint AS on_hand
+FROM branches b
+LEFT JOIN stock_batches sb ON sb.branch_id = b.id AND sb.product_id = $1
+WHERE b.active
+GROUP BY b.id, b.name
+ORDER BY b.name
+`
+
+type StockOnHandByBranchRow struct {
+	BranchID   uuid.UUID `json:"branch_id"`
+	BranchName string    `json:"branch_name"`
+	OnHand     int64     `json:"on_hand"`
+}
+
+// On-hand of a product across every active branch (for the product detail view).
+func (q *Queries) StockOnHandByBranch(ctx context.Context, productID uuid.UUID) ([]StockOnHandByBranchRow, error) {
+	rows, err := q.db.Query(ctx, stockOnHandByBranch, productID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []StockOnHandByBranchRow{}
+	for rows.Next() {
+		var i StockOnHandByBranchRow
+		if err := rows.Scan(&i.BranchID, &i.BranchName, &i.OnHand); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

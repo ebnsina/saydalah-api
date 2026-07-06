@@ -33,6 +33,13 @@ type LowStockResponse struct {
 	OnHand       int64     `json:"on_hand"`
 }
 
+// BranchStockResponse is a product's on-hand quantity in one branch.
+type BranchStockResponse struct {
+	BranchID   uuid.UUID `json:"branch_id"`
+	BranchName string    `json:"branch_name"`
+	OnHand     int64     `json:"on_hand"`
+}
+
 // OnHandResponse is the total on-hand quantity of a product in a branch.
 type OnHandResponse struct {
 	ProductID uuid.UUID `json:"product_id"`

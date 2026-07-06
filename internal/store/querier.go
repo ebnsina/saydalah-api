@@ -69,6 +69,8 @@ type Querier interface {
 	ListNearExpiryBatches(ctx context.Context, arg ListNearExpiryBatchesParams) ([]ListNearExpiryBatchesRow, error)
 	ListPrescriptionItems(ctx context.Context, prescriptionID uuid.UUID) ([]PrescriptionItem, error)
 	ListPrescriptions(ctx context.Context, arg ListPrescriptionsParams) ([]Prescription, error)
+	// All in-stock batches of a product at a branch (detail view; not FEFO-locked).
+	ListProductBatches(ctx context.Context, arg ListProductBatchesParams) ([]StockBatch, error)
 	ListProductCategories(ctx context.Context) ([]string, error)
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
 	ListPurchaseOrderItems(ctx context.Context, poID uuid.UUID) ([]PurchaseOrderItem, error)
@@ -103,6 +105,8 @@ type Querier interface {
 	SetBatchQuantity(ctx context.Context, arg SetBatchQuantityParams) (SetBatchQuantityRow, error)
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error
 	StockOnHand(ctx context.Context, arg StockOnHandParams) (int64, error)
+	// On-hand of a product across every active branch (for the product detail view).
+	StockOnHandByBranch(ctx context.Context, productID uuid.UUID) ([]StockOnHandByBranchRow, error)
 	// Total units already returned to a given batch against a given sale. Used to
 	// cap sale-linked returns at the quantity actually dispensed.
 	SumReturnedForSaleBatch(ctx context.Context, arg SumReturnedForSaleBatchParams) (int64, error)

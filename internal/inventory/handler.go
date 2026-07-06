@@ -79,6 +79,39 @@ func (h *Handler) onHand(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, res)
 }
 
+func (h *Handler) stockByBranch(w http.ResponseWriter, r *http.Request) {
+	productID, err := httpx.URLParamUUID(r, "productID")
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	res, err := h.svc.StockByBranch(r.Context(), productID)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": res})
+}
+
+func (h *Handler) productBatches(w http.ResponseWriter, r *http.Request) {
+	id, ok := auth.IdentityFrom(r.Context())
+	if !ok {
+		httpx.Error(w, r, httpx.ErrUnauthorized)
+		return
+	}
+	productID, err := httpx.URLParamUUID(r, "productID")
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	res, err := h.svc.ProductBatches(r.Context(), id, optionalBranch(r), productID)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": res})
+}
+
 // optionalBranch reads an optional ?branch_id filter (admins scope views to a
 // specific branch; branch staff are pinned to their own branch by the service).
 func optionalBranch(r *http.Request) *uuid.UUID {

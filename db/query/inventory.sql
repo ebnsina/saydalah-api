@@ -36,6 +36,22 @@ SELECT COALESCE(SUM(quantity), 0)::bigint AS on_hand
 FROM stock_batches
 WHERE branch_id = $1 AND product_id = $2;
 
+-- name: StockOnHandByBranch :many
+-- On-hand of a product across every active branch (for the product detail view).
+SELECT b.id AS branch_id, b.name AS branch_name,
+       COALESCE(SUM(sb.quantity), 0)::bigint AS on_hand
+FROM branches b
+LEFT JOIN stock_batches sb ON sb.branch_id = b.id AND sb.product_id = $1
+WHERE b.active
+GROUP BY b.id, b.name
+ORDER BY b.name;
+
+-- name: ListProductBatches :many
+-- All in-stock batches of a product at a branch (detail view; not FEFO-locked).
+SELECT * FROM stock_batches
+WHERE branch_id = $1 AND product_id = $2 AND quantity > 0
+ORDER BY expiry_date ASC;
+
 -- Inventory read queries (per-branch stock, expiry & reorder alerts) ----------
 
 -- name: ListBranchBatches :many

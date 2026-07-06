@@ -15,6 +15,8 @@ type Repository interface {
 	NearExpiry(ctx context.Context, arg store.ListNearExpiryBatchesParams) ([]store.ListNearExpiryBatchesRow, error)
 	LowStock(ctx context.Context, branchID uuid.UUID) ([]store.ListLowStockRow, error)
 	OnHand(ctx context.Context, arg store.StockOnHandParams) (int64, error)
+	StockByBranch(ctx context.Context, productID uuid.UUID) ([]store.StockOnHandByBranchRow, error)
+	ProductBatches(ctx context.Context, arg store.ListProductBatchesParams) ([]store.StockBatch, error)
 }
 
 type storeRepository struct{ q *store.Store }
@@ -40,4 +42,12 @@ func (r *storeRepository) LowStock(ctx context.Context, branchID uuid.UUID) ([]s
 
 func (r *storeRepository) OnHand(ctx context.Context, arg store.StockOnHandParams) (int64, error) {
 	return r.q.StockOnHand(ctx, arg)
+}
+
+func (r *storeRepository) StockByBranch(ctx context.Context, productID uuid.UUID) ([]store.StockOnHandByBranchRow, error) {
+	return r.q.StockOnHandByBranch(ctx, productID)
+}
+
+func (r *storeRepository) ProductBatches(ctx context.Context, arg store.ListProductBatchesParams) ([]store.StockBatch, error) {
+	return r.q.ListProductBatches(ctx, arg)
 }

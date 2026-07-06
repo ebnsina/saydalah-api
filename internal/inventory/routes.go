@@ -23,5 +23,7 @@ func (m *Module) Mount(r chi.Router) {
 		r.Get("/near-expiry", m.handler.nearExpiry)
 		r.Get("/low-stock", m.handler.lowStock)
 		r.Get("/on-hand/{productID}", m.handler.onHand)
+		r.Get("/products/{productID}/stock", m.handler.stockByBranch)
+		r.Get("/products/{productID}/batches", m.handler.productBatches)
 	})
 }
