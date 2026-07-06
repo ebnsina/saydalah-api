@@ -15,16 +15,22 @@ consumes it over a clean JSON REST boundary (`/api/v1`).
 - **Purchasing** — purchase orders and **goods receipt**, which creates expiry-dated stock batches.
 - **Inventory** — per-branch stock, batch/expiry tracking, and **near-expiry** & **low-stock**
   (reorder) alerts.
-- **Sales / POS** — **FEFO** (first-expiry-first-out) checkout in a single transaction, invoices,
-  and **void** (refund + restore stock).
+- **Sales / POS** — **FEFO** (first-expiry-first-out) checkout in a single transaction, with
+  **tax/VAT**, discounts, **partial payment / on-account credit**, invoices, and **void**
+  (refund + restore stock). Per-branch **on-hand** is returned on the product list so the POS can
+  show availability before checkout. Settle outstanding balances with `POST /sales/{id}/payment`.
 - **Prescriptions & customers** — customer records and prescription **dispensing** (reuses FEFO).
-- **Manual stock operations** — adjustments, returns, **inter-branch transfers**, and physical
-  **stock-takes**.
+- **Manual stock operations** — adjustments, returns, **supplier (purchase) returns**,
+  **inter-branch transfers**, and physical **stock-takes**.
 - **Audit ledger** — every stock change writes an append-only `stock_movements` row (type, qty,
   reference, and the acting user) in the same transaction.
-- **Reporting** — sales summary, daily sales, inventory valuation, and top products.
+- **Reporting** — sales summary, daily sales, **sales by payment method**, inventory valuation, and
+  top products.
 - **Operational** — fail-fast typed config, per-IP rate limiting (stricter on login), structured
   request-scoped logging, graceful shutdown, and `/healthz` + `/readyz` probes.
+- **Optional Redis** (`REDIS_URL`) — when set, rate limiting is **shared across instances** and
+  report responses are **cached** (60s) with **instant per-branch invalidation** on any
+  report-affecting write. Nil-safe: the API runs fully without it.
 
 ## Stack
 
@@ -55,8 +61,10 @@ internal/
   store/            sqlc-generated queries + Tx helper (NewStore/Tx)
   server/           chi router, global middleware, /healthz + /readyz, /api/v1 group
   middleware/       request ID, structured logging, panic recovery, (auth/RBAC)
-  httpx/            JSON encode/decode, error→status mapping, validation, pagination
-  <modules>/        auth, user, branch, catalog, purchasing, inventory, sales, prescription
+  httpx/            JSON encode/decode, error→status mapping, validation, pagination, ETag caching
+  cache/            optional Redis read-cache + rate-limit backend (nil-safe)
+  <modules>/        auth, user, branch, catalog, supplier, purchasing, inventory, stock,
+                    sales, customer, prescription, reporting
 db/query/           *.sql query files consumed by sqlc
 ```
 
@@ -109,6 +117,9 @@ All config comes from the environment (see `.env.example`): `DATABASE_URL` and `
 required; `APP_ENV`, `HTTP_ADDR`, `JWT_TTL`, `CORS_ORIGINS`, `SHUTDOWN_TIMEOUT`,
 `RATE_LIMIT_RPS`/`RATE_LIMIT_BURST`, and `LOGIN_RATE_RPS`/`LOGIN_RATE_BURST` have defaults.
 Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` to bootstrap the first admin on an empty database.
+`TAX_RATE` sets the sales VAT fraction (e.g. `0.15`). `REDIS_URL` is optional — when set it enables
+shared (cross-instance) rate limiting and the report cache; when unset or unreachable the API logs a
+warning and runs degraded (in-memory limiter, no cache) rather than failing to start.
 
 Config loading is **fail-fast**: an unset variable uses its default, but a variable set to a
 malformed or out-of-range value makes startup fail with a combined error — a bad override never
@@ -123,13 +134,14 @@ Mounted under `/api/v1`, all behind a JWT except `POST /auth/login`:
 
 - `auth` — `POST /auth/login`, `POST /auth/refresh` (rotating), `POST /auth/logout`, `GET /auth/me`
 - `branches`, `users` — chain administration (manager/admin)
-- `products`, `suppliers` — master catalog (read: all staff; write: manager/admin); `GET /products/barcode/{code}` for POS scan lookup
+- `products`, `suppliers` — master catalog (read: all staff; write: manager/admin);
+  `GET /products/barcode/{code}` for POS scan lookup; `GET /products?branch_id=…` includes per-branch `on_hand`
 - `purchase-orders` — ordering + `POST /{id}/receive` (creates stock batches)
 - `inventory` — `batches`, `near-expiry`, `low-stock`, `on-hand/{productID}`
-- `stock` — `POST /stock/adjustments`, `POST /stock/returns`, `POST /stock/transfers` (inter-branch), `POST /stock/stock-takes` (physical count), `GET /stock/movements` (audit ledger)
-- `sales` — `POST /sales` FEFO checkout, list/get, `POST /sales/{id}/void` (refund + restore stock)
+- `stock` — `POST /stock/adjustments`, `POST /stock/returns`, `POST /stock/purchase-returns` (to supplier), `POST /stock/transfers` (inter-branch), `POST /stock/stock-takes` (physical count), `GET /stock/movements` (audit ledger)
+- `sales` — `POST /sales` FEFO checkout (tax, discount, on-account), list/get, `POST /sales/{id}/payment` (settle balance), `POST /sales/{id}/void` (refund + restore stock)
 - `customers`, `prescriptions` — `POST /prescriptions/{id}/dispense` reuses FEFO
-- `reports` — `sales-summary`, `sales-daily`, `inventory-valuation`, `top-products` (manager/admin)
+- `reports` — `sales-summary`, `sales-daily`, `sales-by-payment`, `inventory-valuation`, `top-products` (manager/admin); cached when Redis is configured
 
 The full contract is in [`api/openapi.yaml`](api/openapi.yaml).
 
