@@ -13,15 +13,18 @@ import (
 
 type Querier interface {
 	AddPurchaseOrderItem(ctx context.Context, arg AddPurchaseOrderItemParams) (PurchaseOrderItem, error)
+	AddSaleItem(ctx context.Context, arg AddSaleItemParams) (SaleItem, error)
 	CountBranchBatches(ctx context.Context, branchID uuid.UUID) (int64, error)
 	CountBranches(ctx context.Context) (int64, error)
 	CountProducts(ctx context.Context, search *string) (int64, error)
 	CountPurchaseOrders(ctx context.Context, branchID uuid.UUID) (int64, error)
+	CountSales(ctx context.Context, branchID uuid.UUID) (int64, error)
 	CountSuppliers(ctx context.Context) (int64, error)
 	CountUsers(ctx context.Context) (int64, error)
 	CreateBranch(ctx context.Context, arg CreateBranchParams) (Branch, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreatePurchaseOrder(ctx context.Context, arg CreatePurchaseOrderParams) (PurchaseOrder, error)
+	CreateSale(ctx context.Context, arg CreateSaleParams) (Sale, error)
 	// Inventory write queries. Batches and the movement ledger are written by the
 	// purchasing (goods-received) and sales (dispensing) flows inside a transaction.
 	CreateStockBatch(ctx context.Context, arg CreateStockBatchParams) (StockBatch, error)
@@ -33,6 +36,7 @@ type Querier interface {
 	GetBranch(ctx context.Context, id uuid.UUID) (Branch, error)
 	GetProduct(ctx context.Context, id uuid.UUID) (Product, error)
 	GetPurchaseOrder(ctx context.Context, id uuid.UUID) (PurchaseOrder, error)
+	GetSale(ctx context.Context, id uuid.UUID) (Sale, error)
 	GetSupplier(ctx context.Context, id uuid.UUID) (Supplier, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
@@ -48,6 +52,8 @@ type Querier interface {
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
 	ListPurchaseOrderItems(ctx context.Context, poID uuid.UUID) ([]PurchaseOrderItem, error)
 	ListPurchaseOrders(ctx context.Context, arg ListPurchaseOrdersParams) ([]PurchaseOrder, error)
+	ListSaleItems(ctx context.Context, saleID uuid.UUID) ([]SaleItem, error)
+	ListSales(ctx context.Context, arg ListSalesParams) ([]Sale, error)
 	ListSuppliers(ctx context.Context, arg ListSuppliersParams) ([]Supplier, error)
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
 	// Mark a PO received. The status guard makes double-receipt a no-op (0 rows),
