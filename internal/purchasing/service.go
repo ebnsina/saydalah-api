@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ebnsina/saydalah-api/internal/auth"
+	"github.com/ebnsina/saydalah-api/internal/cache"
 	"github.com/ebnsina/saydalah-api/internal/httpx"
 	"github.com/ebnsina/saydalah-api/internal/store"
 )
@@ -16,11 +17,12 @@ import (
 // Service holds purchasing business logic, including the transactional goods-
 // receipt flow that turns an order into stock.
 type Service struct {
-	repo Repository
+	repo  Repository
+	cache *cache.Cache
 }
 
 // NewService constructs a purchasing Service.
-func NewService(repo Repository) *Service { return &Service{repo: repo} }
+func NewService(repo Repository, c *cache.Cache) *Service { return &Service{repo: repo, cache: c} }
 
 // actor returns a pointer to the acting user's ID for stamping created_by on
 // movement-ledger rows.
@@ -202,6 +204,7 @@ func (s *Service) Receive(ctx context.Context, id auth.Identity, poID uuid.UUID,
 	if err != nil {
 		return OrderResponse{}, fmt.Errorf("purchasing: items: %w", err)
 	}
+	s.cache.Bump(ctx, po.BranchID) // received stock → refresh valuation
 	return toResponse(updated, items), nil
 }
 

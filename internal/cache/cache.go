@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -55,6 +56,39 @@ func (c *Cache) GetOrSet(ctx context.Context, key string, ttl time.Duration, com
 		slog.Warn("cache: set failed", "key", key, "error", err)
 	}
 	return body, nil
+}
+
+// Bump increments the report-cache version for a branch and the chain-wide
+// scope, instantly invalidating any cached report whose key embeds that version
+// (see reporting.reportKey). Fire-and-forget: a Redis error just means the 60s
+// TTL is the fallback. Pass every branch a write touched (e.g. both ends of a
+// transfer).
+func (c *Cache) Bump(ctx context.Context, branchIDs ...uuid.UUID) {
+	if c == nil || c.rdb == nil {
+		return
+	}
+	pipe := c.rdb.Pipeline()
+	pipe.Incr(ctx, "rptver:all")
+	for _, id := range branchIDs {
+		pipe.Incr(ctx, "rptver:"+id.String())
+	}
+	if _, err := pipe.Exec(ctx); err != nil {
+		slog.Warn("cache: bump failed", "error", err)
+	}
+}
+
+// Version returns the current cache version for a scope ("all" or a branch id),
+// or 0 when Redis is absent. Folding it into a cache key makes a Bump on that
+// scope miss every prior entry.
+func (c *Cache) Version(ctx context.Context, scope string) int64 {
+	if c == nil || c.rdb == nil {
+		return 0
+	}
+	n, err := c.rdb.Get(ctx, "rptver:"+scope).Int64()
+	if err != nil && err != redis.Nil {
+		slog.Warn("cache: version read failed", "scope", scope, "error", err)
+	}
+	return n
 }
 
 func marshal(compute func() (any, error)) ([]byte, error) {

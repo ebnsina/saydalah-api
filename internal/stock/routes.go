@@ -3,6 +3,7 @@ package stock
 import (
 	"github.com/go-chi/chi/v5"
 
+	"github.com/ebnsina/saydalah-api/internal/cache"
 	"github.com/ebnsina/saydalah-api/internal/middleware"
 	"github.com/ebnsina/saydalah-api/internal/store"
 )
@@ -13,8 +14,8 @@ type Module struct {
 }
 
 // New wires the stock module: store → repository → service → handler.
-func New(s *store.Store) *Module {
-	return &Module{handler: NewHandler(NewService(NewRepository(s)))}
+func New(s *store.Store, c *cache.Cache) *Module {
+	return &Module{handler: NewHandler(NewService(NewRepository(s), c))}
 }
 
 // Mount registers manual stock-operation routes under /stock. Adjustments and

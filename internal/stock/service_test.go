@@ -95,7 +95,7 @@ func newBatch(qty int32) store.StockBatch {
 
 func TestAdjustDown(t *testing.T) {
 	repo := &fakeRepo{batch: newBatch(10)}
-	res, err := NewService(repo).Adjust(context.Background(), manager, AdjustRequest{BatchID: repo.batch.ID, Delta: -3})
+	res, err := NewService(repo, nil).Adjust(context.Background(), manager, AdjustRequest{BatchID: repo.batch.ID, Delta: -3})
 	if err != nil {
 		t.Fatalf("Adjust: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestAdjustDown(t *testing.T) {
 
 func TestAdjustRejectsNegativeResult(t *testing.T) {
 	repo := &fakeRepo{batch: newBatch(2)}
-	_, err := NewService(repo).Adjust(context.Background(), manager, AdjustRequest{BatchID: repo.batch.ID, Delta: -5})
+	_, err := NewService(repo, nil).Adjust(context.Background(), manager, AdjustRequest{BatchID: repo.batch.ID, Delta: -5})
 	if !errors.Is(err, httpx.ErrInvalidInput) {
 		t.Fatalf("expected invalid-input error, got %v", err)
 	}
@@ -123,7 +123,7 @@ func TestAdjustRejectsNegativeResult(t *testing.T) {
 
 func TestReturnIncrementsAndRecordsReturn(t *testing.T) {
 	repo := &fakeRepo{batch: newBatch(10)}
-	res, err := NewService(repo).Return(context.Background(), manager, ReturnRequest{BatchID: repo.batch.ID, Qty: 4})
+	res, err := NewService(repo, nil).Return(context.Background(), manager, ReturnRequest{BatchID: repo.batch.ID, Qty: 4})
 	if err != nil {
 		t.Fatalf("Return: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestReturnIncrementsAndRecordsReturn(t *testing.T) {
 func TestTransferMovesStockBetweenBranches(t *testing.T) {
 	repo := &fakeRepo{batch: newBatch(10)}
 	dst := uuid.New()
-	res, err := NewService(repo).Transfer(context.Background(), manager, TransferRequest{
+	res, err := NewService(repo, nil).Transfer(context.Background(), manager, TransferRequest{
 		BatchID: repo.batch.ID, ToBranchID: dst, Qty: 4,
 	})
 	if err != nil {
@@ -159,7 +159,7 @@ func TestTransferMovesStockBetweenBranches(t *testing.T) {
 
 func TestTransferInsufficientStock(t *testing.T) {
 	repo := &fakeRepo{batch: newBatch(3)}
-	_, err := NewService(repo).Transfer(context.Background(), manager, TransferRequest{
+	_, err := NewService(repo, nil).Transfer(context.Background(), manager, TransferRequest{
 		BatchID: repo.batch.ID, ToBranchID: uuid.New(), Qty: 5,
 	})
 	if !errors.Is(err, httpx.ErrInsufficientStock) {
@@ -172,7 +172,7 @@ func TestTransferInsufficientStock(t *testing.T) {
 
 func TestTransferRejectsSameBranch(t *testing.T) {
 	repo := &fakeRepo{batch: newBatch(10)}
-	_, err := NewService(repo).Transfer(context.Background(), manager, TransferRequest{
+	_, err := NewService(repo, nil).Transfer(context.Background(), manager, TransferRequest{
 		BatchID: repo.batch.ID, ToBranchID: branchID, Qty: 1, // same as source branch
 	})
 	if !errors.Is(err, httpx.ErrInvalidInput) {
@@ -189,7 +189,7 @@ func TestSaleLinkedReturnWithinSoldQuantity(t *testing.T) {
 		saleItems:  []store.SaleItem{{BatchID: b.ID, Qty: 5}},
 		alreadyRet: 2, // 2 of 5 already returned; 3 remain
 	}
-	res, err := NewService(repo).Return(context.Background(), manager, ReturnRequest{
+	res, err := NewService(repo, nil).Return(context.Background(), manager, ReturnRequest{
 		BatchID: b.ID, Qty: 3, SaleID: &saleID,
 	})
 	if err != nil {
@@ -212,7 +212,7 @@ func TestSaleLinkedReturnExceedingSoldIsRejected(t *testing.T) {
 		saleItems:  []store.SaleItem{{BatchID: b.ID, Qty: 5}},
 		alreadyRet: 4, // only 1 remains
 	}
-	_, err := NewService(repo).Return(context.Background(), manager, ReturnRequest{
+	_, err := NewService(repo, nil).Return(context.Background(), manager, ReturnRequest{
 		BatchID: b.ID, Qty: 3, SaleID: &saleID,
 	})
 	if !errors.Is(err, httpx.ErrInvalidInput) {
@@ -231,7 +231,7 @@ func TestSaleLinkedReturnBatchNotInSale(t *testing.T) {
 		sale:      store.Sale{ID: saleID, BranchID: branchID},
 		saleItems: []store.SaleItem{{BatchID: uuid.New(), Qty: 5}}, // different batch
 	}
-	_, err := NewService(repo).Return(context.Background(), manager, ReturnRequest{
+	_, err := NewService(repo, nil).Return(context.Background(), manager, ReturnRequest{
 		BatchID: b.ID, Qty: 1, SaleID: &saleID,
 	})
 	if !errors.Is(err, httpx.ErrInvalidInput) {
@@ -241,7 +241,7 @@ func TestSaleLinkedReturnBatchNotInSale(t *testing.T) {
 
 func TestStockTakeRecordsDelta(t *testing.T) {
 	repo := &fakeRepo{batch: newBatch(10)}
-	res, err := NewService(repo).StockTake(context.Background(), manager, StockTakeRequest{
+	res, err := NewService(repo, nil).StockTake(context.Background(), manager, StockTakeRequest{
 		BranchID: &branchID,
 		Lines:    []StockTakeLine{{BatchID: repo.batch.ID, CountedQty: 8}}, // 2 short
 	})
@@ -261,7 +261,7 @@ func TestStockTakeRecordsDelta(t *testing.T) {
 
 func TestStockTakeNoChangeNoMovement(t *testing.T) {
 	repo := &fakeRepo{batch: newBatch(10)}
-	res, err := NewService(repo).StockTake(context.Background(), manager, StockTakeRequest{
+	res, err := NewService(repo, nil).StockTake(context.Background(), manager, StockTakeRequest{
 		BranchID: &branchID,
 		Lines:    []StockTakeLine{{BatchID: repo.batch.ID, CountedQty: 10}}, // matches
 	})
@@ -280,7 +280,7 @@ func TestForbiddenOtherBranch(t *testing.T) {
 	repo := &fakeRepo{batch: newBatch(10)}
 	other := uuid.New()
 	staff := auth.Identity{UserID: uuid.New(), Role: store.UserRoleCashier, BranchID: &other}
-	_, err := NewService(repo).Adjust(context.Background(), staff, AdjustRequest{BatchID: repo.batch.ID, Delta: -1})
+	_, err := NewService(repo, nil).Adjust(context.Background(), staff, AdjustRequest{BatchID: repo.batch.ID, Delta: -1})
 	if !errors.Is(err, httpx.ErrForbidden) {
 		t.Fatalf("expected forbidden for other branch, got %v", err)
 	}

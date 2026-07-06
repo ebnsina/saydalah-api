@@ -1,6 +1,7 @@
 package reporting
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -34,7 +35,7 @@ func (h *Handler) cached(w http.ResponseWriter, r *http.Request, name, extra str
 		httpx.Error(w, r, httpx.ErrUnauthorized)
 		return
 	}
-	body, err := h.cache.GetOrSet(r.Context(), reportKey(name, id, r, extra), reportTTL, func() (any, error) {
+	body, err := h.cache.GetOrSet(r.Context(), h.reportKey(r.Context(), name, id, r, extra), reportTTL, func() (any, error) {
 		return compute(id)
 	})
 	if err != nil {
@@ -49,8 +50,10 @@ func (h *Handler) cached(w http.ResponseWriter, r *http.Request, name, extra str
 
 // reportKey namespaces a cache entry by report, the caller's own branch scope
 // (so a cashier's "my branch" can't read another branch's cache), the requested
-// branch, the date window, and any extra discriminator (e.g. top-N limit).
-func reportKey(name string, id auth.Identity, r *http.Request, extra string) string {
+// branch, the date window, any extra discriminator (e.g. top-N limit), and the
+// current cache version for the effective data scope — a Bump on that scope
+// changes the version, so the next read misses and recomputes instantly.
+func (h *Handler) reportKey(ctx context.Context, name string, id auth.Identity, r *http.Request, extra string) string {
 	scope := "chain"
 	if id.BranchID != nil {
 		scope = id.BranchID.String()
@@ -59,8 +62,17 @@ func reportKey(name string, id auth.Identity, r *http.Request, extra string) str
 	if b := optionalBranch(r); b != nil {
 		req = b.String()
 	}
+	// The data scope this report actually reads: an explicit branch, else the
+	// caller's own branch, else the whole chain.
+	dataScope := "all"
+	if req != "all" {
+		dataScope = req
+	} else if scope != "chain" {
+		dataScope = scope
+	}
+	ver := h.cache.Version(ctx, dataScope)
 	rng := parseRange(r)
-	return fmt.Sprintf("rpt:%s:%s:%s:%d:%d:%s", name, scope, req, rng.From.Unix(), rng.To.Unix(), extra)
+	return fmt.Sprintf("rpt:%s:%s:%s:%d:%d:%s:v%d", name, scope, req, rng.From.Unix(), rng.To.Unix(), extra, ver)
 }
 
 func (h *Handler) salesSummary(w http.ResponseWriter, r *http.Request) {

@@ -9,18 +9,22 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/ebnsina/saydalah-api/internal/auth"
+	"github.com/ebnsina/saydalah-api/internal/cache"
 	"github.com/ebnsina/saydalah-api/internal/httpx"
 	"github.com/ebnsina/saydalah-api/internal/store"
 )
 
 // Service holds manual stock-operation logic (adjustments and returns) and the
 // movement-ledger read.
+// Service carries the report-cache invalidator so stock changes refresh the
+// inventory-valuation report immediately.
 type Service struct {
-	repo Repository
+	repo  Repository
+	cache *cache.Cache
 }
 
 // NewService constructs a stock Service.
-func NewService(repo Repository) *Service { return &Service{repo: repo} }
+func NewService(repo Repository, c *cache.Cache) *Service { return &Service{repo: repo, cache: c} }
 
 // actor returns a pointer to the acting user's ID for stamping created_by on
 // movement-ledger rows.
@@ -162,6 +166,7 @@ func (s *Service) apply(
 		}
 		return BatchResponse{}, fmt.Errorf("stock: apply: %w", err)
 	}
+	s.cache.Bump(ctx, batch.BranchID) // stock changed → refresh valuation
 	return batchResponse(updated), nil
 }
 
@@ -234,6 +239,7 @@ func (s *Service) Transfer(ctx context.Context, id auth.Identity, in TransferReq
 		}
 		return TransferResponse{}, fmt.Errorf("stock: transfer: %w", err)
 	}
+	s.cache.Bump(ctx, src.BranchID, in.ToBranchID) // both branches' valuations changed
 	return TransferResponse{Source: batchResponse(depleted), Destination: batchResponse(created)}, nil
 }
 

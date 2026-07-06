@@ -11,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/ebnsina/saydalah-api/internal/auth"
+	"github.com/ebnsina/saydalah-api/internal/cache"
 	"github.com/ebnsina/saydalah-api/internal/httpx"
 	"github.com/ebnsina/saydalah-api/internal/store"
 )
@@ -19,11 +20,12 @@ import (
 type Service struct {
 	repo    Repository
 	taxRate decimal.Decimal // fraction applied to (subtotal - discount)
+	cache   *cache.Cache    // report-cache invalidator (nil-safe)
 }
 
 // NewService constructs a sales Service with the given tax rate (0 = tax-free).
-func NewService(repo Repository, taxRate decimal.Decimal) *Service {
-	return &Service{repo: repo, taxRate: taxRate}
+func NewService(repo Repository, taxRate decimal.Decimal, c *cache.Cache) *Service {
+	return &Service{repo: repo, taxRate: taxRate, cache: c}
 }
 
 // actor returns a pointer to the acting user's ID for stamping created_by on
@@ -141,6 +143,7 @@ func (s *Service) Create(ctx context.Context, id auth.Identity, in CreateRequest
 	if err != nil {
 		return Response{}, fmt.Errorf("sales: items: %w", err)
 	}
+	s.cache.Bump(ctx, branchID) // sale changed this branch's reports
 	return toResponse(sale, items), nil
 }
 
@@ -253,6 +256,7 @@ func (s *Service) RecordPayment(ctx context.Context, id auth.Identity, saleID uu
 	if err != nil {
 		return Response{}, fmt.Errorf("sales: items: %w", err)
 	}
+	s.cache.Bump(ctx, sale.BranchID) // payment changed the branch's due totals
 	return toResponse(updated, items), nil
 }
 
@@ -318,6 +322,7 @@ func (s *Service) Void(ctx context.Context, id auth.Identity, saleID uuid.UUID) 
 	if err != nil {
 		return Response{}, wrap("void", err)
 	}
+	s.cache.Bump(ctx, sale.BranchID) // void restocked and reversed the sale
 	return toResponse(updated, items), nil
 }
 

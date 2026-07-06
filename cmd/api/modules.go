@@ -36,6 +36,7 @@ import (
 // the auth gate; everything else runs behind Authenticate.
 func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager, cfg config.Config, rdb *redis.Client) {
 	api := srv.API()
+	c := cache.New(rdb) // shared report cache + invalidator (nil-safe without Redis)
 
 	authMod := auth.New(st, tm, cfg.RefreshTTL)
 	// Login gets a stricter, dedicated rate limit (on top of the global one) to
@@ -56,16 +57,16 @@ func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager,
 		user.New(st).Mount(r)
 		catalog.New(st).Mount(r)
 		supplier.New(st).Mount(r)
-		purchasing.New(st).Mount(r)
+		purchasing.New(st, c).Mount(r)
 		inventory.New(st).Mount(r)
-		stock.New(st).Mount(r)
+		stock.New(st, c).Mount(r)
 
-		salesMod := sales.New(st, cfg.TaxRate)
+		salesMod := sales.New(st, cfg.TaxRate, c)
 		salesMod.Mount(r)
 
 		customer.New(st).Mount(r)
 		prescription.New(st, salesMod.Service()).Mount(r)
-		reporting.New(st, cache.New(rdb)).Mount(r)
+		reporting.New(st, c).Mount(r)
 	})
 }
 

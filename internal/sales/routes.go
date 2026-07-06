@@ -4,6 +4,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shopspring/decimal"
 
+	"github.com/ebnsina/saydalah-api/internal/cache"
 	"github.com/ebnsina/saydalah-api/internal/middleware"
 	"github.com/ebnsina/saydalah-api/internal/store"
 )
@@ -16,8 +17,8 @@ type Module struct {
 
 // New wires the sales module: store → repository → service → handler. taxRate is
 // the sales tax/VAT fraction applied at checkout (0 = tax-free).
-func New(s *store.Store, taxRate float64) *Module {
-	svc := NewService(NewRepository(s), decimal.NewFromFloat(taxRate))
+func New(s *store.Store, taxRate float64, c *cache.Cache) *Module {
+	svc := NewService(NewRepository(s), decimal.NewFromFloat(taxRate), c)
 	return &Module{handler: NewHandler(svc), svc: svc}
 }
 
