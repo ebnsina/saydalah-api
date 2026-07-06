@@ -9,8 +9,8 @@ RETURNING *;
 
 -- name: RecordStockMovement :one
 INSERT INTO stock_movements (
-    product_id, branch_id, batch_id, type, qty, ref_type, ref_id, note
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    product_id, branch_id, batch_id, type, qty, ref_type, ref_id, note, created_by
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- Decrement a batch's quantity, but only if enough remains. Returns the updated
@@ -84,9 +84,10 @@ WHERE id = sqlc.arg('id') AND quantity + sqlc.arg('delta') >= 0
 RETURNING *;
 
 -- name: ListStockMovements :many
-SELECT sm.*, p.name AS product_name
+SELECT sm.*, p.name AS product_name, u.full_name AS created_by_name
 FROM stock_movements sm
 JOIN products p ON p.id = sm.product_id
+LEFT JOIN users u ON u.id = sm.created_by
 WHERE sm.branch_id = sqlc.arg('branch_id')
   AND (sqlc.narg('product_id')::uuid IS NULL OR sm.product_id = sqlc.narg('product_id'))
 ORDER BY sm.created_at DESC

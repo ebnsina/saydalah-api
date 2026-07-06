@@ -22,6 +22,10 @@ type Service struct {
 // NewService constructs a stock Service.
 func NewService(repo Repository) *Service { return &Service{repo: repo} }
 
+// actor returns a pointer to the acting user's ID for stamping created_by on
+// movement-ledger rows.
+func actor(id auth.Identity) *uuid.UUID { u := id.UserID; return &u }
+
 // MovementsResult is a page of ledger rows plus the total count.
 type MovementsResult struct {
 	Items []MovementResponse
@@ -137,6 +141,7 @@ func (s *Service) apply(
 			RefType:   refType,
 			RefID:     refID,
 			Note:      note,
+			CreatedBy: actor(id),
 		}); err != nil {
 			return err
 		}
@@ -184,7 +189,7 @@ func (s *Service) Transfer(ctx context.Context, id auth.Identity, in TransferReq
 		if _, err := tx.RecordMovement(ctx, store.RecordStockMovementParams{
 			ProductID: src.ProductID, BranchID: src.BranchID, BatchID: &srcRef,
 			Type: store.MovementTypeTransferOut, Qty: -in.Qty,
-			RefType: "transfer", Note: in.Note,
+			RefType: "transfer", Note: in.Note, CreatedBy: actor(id),
 		}); err != nil {
 			return err
 		}
@@ -208,7 +213,7 @@ func (s *Service) Transfer(ctx context.Context, id auth.Identity, in TransferReq
 		if _, err := tx.RecordMovement(ctx, store.RecordStockMovementParams{
 			ProductID: src.ProductID, BranchID: in.ToBranchID, BatchID: &dstRef,
 			Type: store.MovementTypeTransferIn, Qty: in.Qty,
-			RefType: "transfer", Note: in.Note,
+			RefType: "transfer", Note: in.Note, CreatedBy: actor(id),
 		}); err != nil {
 			return err
 		}
@@ -275,6 +280,7 @@ func (s *Service) StockTake(ctx context.Context, id auth.Identity, in StockTakeR
 					Qty:       delta,
 					RefType:   "stock_take",
 					Note:      "physical count",
+					CreatedBy: actor(id),
 				}); err != nil {
 					return err
 				}

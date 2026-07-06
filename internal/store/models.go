@@ -308,6 +308,7 @@ type StockMovement struct {
 	RefID     *uuid.UUID   `json:"ref_id"`
 	Note      string       `json:"note"`
 	CreatedAt time.Time    `json:"created_at"`
+	CreatedBy *uuid.UUID   `json:"created_by"`
 }
 
 type Supplier struct {

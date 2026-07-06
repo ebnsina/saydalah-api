@@ -331,6 +331,10 @@ paths:
     get:
       tags: [stock]
       summary: Movement ledger (audit trail)
+      description: >
+        Each row includes created_by (the acting user) and created_by_name,
+        so every purchase, sale, adjustment, return, transfer, and stock-take
+        is attributable.
       parameters:
         - $ref: "#/components/parameters/BranchId"
         - { name: product_id, in: query, schema: { type: string, format: uuid } }

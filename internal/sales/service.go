@@ -22,6 +22,10 @@ type Service struct {
 // NewService constructs a sales Service.
 func NewService(repo Repository) *Service { return &Service{repo: repo} }
 
+// actor returns a pointer to the acting user's ID for stamping created_by on
+// movement-ledger rows.
+func actor(id auth.Identity) *uuid.UUID { u := id.UserID; return &u }
+
 // ListResult is a page of sales plus the total count for a branch.
 type ListResult struct {
 	Items []store.Sale
@@ -101,6 +105,7 @@ func (s *Service) Create(ctx context.Context, id auth.Identity, in CreateRequest
 				Qty:       -a.qty, // outbound
 				RefType:   "sale",
 				RefID:     &saleRef,
+				CreatedBy: actor(id),
 			}); err != nil {
 				return err
 			}

@@ -384,9 +384,10 @@ func (q *Queries) ListNearExpiryBatches(ctx context.Context, arg ListNearExpiryB
 }
 
 const listStockMovements = `-- name: ListStockMovements :many
-SELECT sm.id, sm.product_id, sm.branch_id, sm.batch_id, sm.type, sm.qty, sm.ref_type, sm.ref_id, sm.note, sm.created_at, p.name AS product_name
+SELECT sm.id, sm.product_id, sm.branch_id, sm.batch_id, sm.type, sm.qty, sm.ref_type, sm.ref_id, sm.note, sm.created_at, sm.created_by, p.name AS product_name, u.full_name AS created_by_name
 FROM stock_movements sm
 JOIN products p ON p.id = sm.product_id
+LEFT JOIN users u ON u.id = sm.created_by
 WHERE sm.branch_id = $1
   AND ($2::uuid IS NULL OR sm.product_id = $2)
 ORDER BY sm.created_at DESC
@@ -401,17 +402,19 @@ type ListStockMovementsParams struct {
 }
 
 type ListStockMovementsRow struct {
-	ID          uuid.UUID    `json:"id"`
-	ProductID   uuid.UUID    `json:"product_id"`
-	BranchID    uuid.UUID    `json:"branch_id"`
-	BatchID     *uuid.UUID   `json:"batch_id"`
-	Type        MovementType `json:"type"`
-	Qty         int32        `json:"qty"`
-	RefType     string       `json:"ref_type"`
-	RefID       *uuid.UUID   `json:"ref_id"`
-	Note        string       `json:"note"`
-	CreatedAt   time.Time    `json:"created_at"`
-	ProductName string       `json:"product_name"`
+	ID            uuid.UUID    `json:"id"`
+	ProductID     uuid.UUID    `json:"product_id"`
+	BranchID      uuid.UUID    `json:"branch_id"`
+	BatchID       *uuid.UUID   `json:"batch_id"`
+	Type          MovementType `json:"type"`
+	Qty           int32        `json:"qty"`
+	RefType       string       `json:"ref_type"`
+	RefID         *uuid.UUID   `json:"ref_id"`
+	Note          string       `json:"note"`
+	CreatedAt     time.Time    `json:"created_at"`
+	CreatedBy     *uuid.UUID   `json:"created_by"`
+	ProductName   string       `json:"product_name"`
+	CreatedByName *string      `json:"created_by_name"`
 }
 
 func (q *Queries) ListStockMovements(ctx context.Context, arg ListStockMovementsParams) ([]ListStockMovementsRow, error) {
@@ -439,7 +442,9 @@ func (q *Queries) ListStockMovements(ctx context.Context, arg ListStockMovements
 			&i.RefID,
 			&i.Note,
 			&i.CreatedAt,
+			&i.CreatedBy,
 			&i.ProductName,
+			&i.CreatedByName,
 		); err != nil {
 			return nil, err
 		}
@@ -453,9 +458,9 @@ func (q *Queries) ListStockMovements(ctx context.Context, arg ListStockMovements
 
 const recordStockMovement = `-- name: RecordStockMovement :one
 INSERT INTO stock_movements (
-    product_id, branch_id, batch_id, type, qty, ref_type, ref_id, note
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, product_id, branch_id, batch_id, type, qty, ref_type, ref_id, note, created_at
+    product_id, branch_id, batch_id, type, qty, ref_type, ref_id, note, created_by
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, product_id, branch_id, batch_id, type, qty, ref_type, ref_id, note, created_at, created_by
 `
 
 type RecordStockMovementParams struct {
@@ -467,6 +472,7 @@ type RecordStockMovementParams struct {
 	RefType   string       `json:"ref_type"`
 	RefID     *uuid.UUID   `json:"ref_id"`
 	Note      string       `json:"note"`
+	CreatedBy *uuid.UUID   `json:"created_by"`
 }
 
 func (q *Queries) RecordStockMovement(ctx context.Context, arg RecordStockMovementParams) (StockMovement, error) {
@@ -479,6 +485,7 @@ func (q *Queries) RecordStockMovement(ctx context.Context, arg RecordStockMoveme
 		arg.RefType,
 		arg.RefID,
 		arg.Note,
+		arg.CreatedBy,
 	)
 	var i StockMovement
 	err := row.Scan(
@@ -492,6 +499,7 @@ func (q *Queries) RecordStockMovement(ctx context.Context, arg RecordStockMoveme
 		&i.RefID,
 		&i.Note,
 		&i.CreatedAt,
+		&i.CreatedBy,
 	)
 	return i, err
 }

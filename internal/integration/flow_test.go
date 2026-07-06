@@ -234,6 +234,24 @@ func TestStockTakeReconciliation(t *testing.T) {
 	if got := e.onHand(t, branchID, productID); got != 100 {
 		t.Errorf("on-hand after stock-take = %d, want 100", got)
 	}
+
+	// The stock-take movement must be attributed to the acting user (audit).
+	moves, err := e.stock.Movements(ctx, e.admin, &branchID, &productID, httpx.Pagination{Limit: 10})
+	if err != nil {
+		t.Fatalf("movements: %v", err)
+	}
+	var found bool
+	for _, m := range moves.Items {
+		if m.RefType == "stock_take" {
+			found = true
+			if m.CreatedBy == nil || *m.CreatedBy != e.admin.UserID {
+				t.Errorf("stock_take movement created_by = %v, want %s", m.CreatedBy, e.admin.UserID)
+			}
+		}
+	}
+	if !found {
+		t.Error("no stock_take movement found in ledger")
+	}
 }
 
 func TestSaleLinkedReturnCap(t *testing.T) {

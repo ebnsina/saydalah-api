@@ -88,17 +88,19 @@ type BatchResponse struct {
 
 // MovementResponse is one row of the movement ledger.
 type MovementResponse struct {
-	ID          uuid.UUID          `json:"id"`
-	ProductID   uuid.UUID          `json:"product_id"`
-	ProductName string             `json:"product_name"`
-	BranchID    uuid.UUID          `json:"branch_id"`
-	BatchID     *uuid.UUID         `json:"batch_id"`
-	Type        store.MovementType `json:"type"`
-	Qty         int32              `json:"qty"`
-	RefType     string             `json:"ref_type"`
-	RefID       *uuid.UUID         `json:"ref_id"`
-	Note        string             `json:"note"`
-	CreatedAt   time.Time          `json:"created_at"`
+	ID            uuid.UUID          `json:"id"`
+	ProductID     uuid.UUID          `json:"product_id"`
+	ProductName   string             `json:"product_name"`
+	BranchID      uuid.UUID          `json:"branch_id"`
+	BatchID       *uuid.UUID         `json:"batch_id"`
+	Type          store.MovementType `json:"type"`
+	Qty           int32              `json:"qty"`
+	RefType       string             `json:"ref_type"`
+	RefID         *uuid.UUID         `json:"ref_id"`
+	Note          string             `json:"note"`
+	CreatedBy     *uuid.UUID         `json:"created_by"`
+	CreatedByName *string            `json:"created_by_name"`
+	CreatedAt     time.Time          `json:"created_at"`
 }
 
 func batchResponse(b store.StockBatch) BatchResponse {
@@ -114,16 +116,18 @@ func batchResponse(b store.StockBatch) BatchResponse {
 
 func movementResponse(r store.ListStockMovementsRow) MovementResponse {
 	return MovementResponse{
-		ID:          r.ID,
-		ProductID:   r.ProductID,
-		ProductName: r.ProductName,
-		BranchID:    r.BranchID,
-		BatchID:     r.BatchID,
-		Type:        r.Type,
-		Qty:         r.Qty,
-		RefType:     r.RefType,
-		RefID:       r.RefID,
-		Note:        r.Note,
-		CreatedAt:   r.CreatedAt,
+		ID:            r.ID,
+		ProductID:     r.ProductID,
+		ProductName:   r.ProductName,
+		BranchID:      r.BranchID,
+		BatchID:       r.BatchID,
+		Type:          r.Type,
+		Qty:           r.Qty,
+		RefType:       r.RefType,
+		RefID:         r.RefID,
+		Note:          r.Note,
+		CreatedBy:     r.CreatedBy,
+		CreatedByName: r.CreatedByName,
+		CreatedAt:     r.CreatedAt,
 	}
 }
