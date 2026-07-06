@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -53,6 +54,26 @@ func (s *Service) Login(ctx context.Context, in LoginRequest) (LoginResponse, er
 		return LoginResponse{}, err
 	}
 	return resp, nil
+}
+
+// ChangePassword verifies the caller's current password and stores a new hash.
+// Wrong current password yields httpx.ErrUnauthorized.
+func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, current, next string) error {
+	u, err := s.repo.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("auth: lookup user: %w", err)
+	}
+	if !CheckPassword(u.PasswordHash, current) {
+		return httpx.NewError(http.StatusUnauthorized, "current password is incorrect")
+	}
+	hash, err := HashPassword(next)
+	if err != nil {
+		return fmt.Errorf("auth: hash password: %w", err)
+	}
+	if err := s.repo.SetPassword(ctx, userID, hash); err != nil {
+		return fmt.Errorf("auth: set password: %w", err)
+	}
+	return nil
 }
 
 // Refresh validates a refresh token, rotates it (revoking the presented token

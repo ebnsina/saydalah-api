@@ -40,4 +40,5 @@ func (m *Module) MountPublic(r chi.Router, loginLimiter func(http.Handler) http.
 // it on a router that already applies the Authenticate middleware.
 func (m *Module) MountProtected(r chi.Router) {
 	r.Get("/auth/me", m.handler.me)
+	r.Post("/auth/change-password", m.handler.changePassword)
 }

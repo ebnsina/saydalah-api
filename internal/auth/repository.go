@@ -16,6 +16,7 @@ import (
 type Repository interface {
 	GetByEmail(ctx context.Context, email string) (store.User, error)
 	GetByID(ctx context.Context, id uuid.UUID) (store.User, error)
+	SetPassword(ctx context.Context, id uuid.UUID, hash string) error
 
 	CreateRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (store.RefreshToken, error)
 	GetRefreshToken(ctx context.Context, tokenHash string) (store.RefreshToken, error)
@@ -48,6 +49,10 @@ func (r *storeRepository) GetByEmail(ctx context.Context, email string) (store.U
 
 func (r *storeRepository) GetByID(ctx context.Context, id uuid.UUID) (store.User, error) {
 	return r.q.GetUserByID(ctx, id)
+}
+
+func (r *storeRepository) SetPassword(ctx context.Context, id uuid.UUID, hash string) error {
+	return r.q.SetUserPassword(ctx, store.SetUserPasswordParams{ID: id, PasswordHash: hash})
 }
 
 func (r *storeRepository) CreateRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) (store.RefreshToken, error) {

@@ -68,3 +68,21 @@ func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.JSON(w, http.StatusOK, info)
 }
+
+func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {
+	id, ok := IdentityFrom(r.Context())
+	if !ok {
+		httpx.Error(w, r, httpx.ErrUnauthorized)
+		return
+	}
+	var in ChangePasswordRequest
+	if err := httpx.Decode(w, r, &in); err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	if err := h.svc.ChangePassword(r.Context(), id.UserID, in.CurrentPassword, in.NewPassword); err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

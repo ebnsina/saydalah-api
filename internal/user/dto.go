@@ -29,6 +29,11 @@ type UpdateRequest struct {
 	Active   bool           `json:"active"`
 }
 
+// SetPasswordRequest is an admin-initiated password reset.
+type SetPasswordRequest struct {
+	Password string `json:"password" validate:"required,min=8,max=72"`
+}
+
 // Response is the client-facing user representation; it never includes the
 // password hash.
 type Response struct {

@@ -24,6 +24,12 @@ type LoginResponse struct {
 }
 
 // RefreshRequest carries a refresh token, used by both refresh and logout.
+// ChangePasswordRequest is the authenticated self-service password change.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password"     validate:"required,min=8,max=72"`
+}
+
 type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
 }

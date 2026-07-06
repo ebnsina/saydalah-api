@@ -73,3 +73,21 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.JSON(w, http.StatusOK, toResponse(u))
 }
+
+func (h *Handler) setPassword(w http.ResponseWriter, r *http.Request) {
+	id, err := httpx.URLParamUUID(r, "id")
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	var in SetPasswordRequest
+	if err := httpx.Decode(w, r, &in); err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	if err := h.svc.ResetPassword(r.Context(), id, in.Password); err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -32,5 +32,6 @@ func (m *Module) Mount(r chi.Router) {
 		r.Post("/", m.handler.create)
 		r.Get("/{id}", m.handler.get)
 		r.Put("/{id}", m.handler.update)
+		r.Put("/{id}/password", m.handler.setPassword)
 	})
 }

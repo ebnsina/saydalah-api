@@ -107,6 +107,24 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, in UpdateRequest) (s
 	return u, nil
 }
 
+// ResetPassword sets a new password hash for a user (admin-initiated, no
+// current-password check).
+func (s *Service) ResetPassword(ctx context.Context, id uuid.UUID, newPassword string) error {
+	if _, err := s.repo.GetByID(ctx, id); errors.Is(err, pgx.ErrNoRows) {
+		return httpx.ErrNotFound
+	} else if err != nil {
+		return fmt.Errorf("user: lookup: %w", err)
+	}
+	hash, err := auth.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("user: hash password: %w", err)
+	}
+	if err := s.repo.SetPassword(ctx, id, hash); err != nil {
+		return fmt.Errorf("user: set password: %w", err)
+	}
+	return nil
+}
+
 // normalizeBranch enforces the role/branch invariant: admins are chain-wide
 // (branch cleared), everyone else must be assigned to a branch.
 func normalizeBranch(role store.UserRole, branchID *uuid.UUID) (*uuid.UUID, error) {

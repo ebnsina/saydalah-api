@@ -16,6 +16,7 @@ type Repository interface {
 	List(ctx context.Context, arg store.ListUsersParams) ([]store.User, error)
 	Count(ctx context.Context) (int64, error)
 	Update(ctx context.Context, arg store.UpdateUserParams) (store.User, error)
+	SetPassword(ctx context.Context, id uuid.UUID, hash string) error
 }
 
 type storeRepository struct{ q *store.Store }
@@ -41,6 +42,10 @@ func (r *storeRepository) List(ctx context.Context, arg store.ListUsersParams) (
 
 func (r *storeRepository) Count(ctx context.Context) (int64, error) {
 	return r.q.CountUsers(ctx)
+}
+
+func (r *storeRepository) SetPassword(ctx context.Context, id uuid.UUID, hash string) error {
+	return r.q.SetUserPassword(ctx, store.SetUserPasswordParams{ID: id, PasswordHash: hash})
 }
 
 func (r *storeRepository) Update(ctx context.Context, arg store.UpdateUserParams) (store.User, error) {
