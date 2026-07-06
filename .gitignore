@@ -1,0 +1,22 @@
+# Environment & secrets
+.env
+*.local
+
+# Build output
+/bin/
+/tmp/
+saydalah-api
+
+# Go
+*.test
+*.out
+coverage.*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+
+# Internal planning / scratch — not for the public repo
+/docs/
+/data/
