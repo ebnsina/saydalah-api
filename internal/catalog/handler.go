@@ -3,6 +3,8 @@ package catalog
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/ebnsina/saydalah-api/internal/httpx"
 )
 
@@ -35,6 +37,20 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p, err := h.svc.Get(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, toResponse(p))
+}
+
+func (h *Handler) getByBarcode(w http.ResponseWriter, r *http.Request) {
+	code := chi.URLParam(r, "code")
+	if code == "" {
+		httpx.Error(w, r, httpx.NewError(http.StatusBadRequest, "barcode is required"))
+		return
+	}
+	p, err := h.svc.GetByBarcode(r.Context(), code)
 	if err != nil {
 		httpx.Error(w, r, err)
 		return

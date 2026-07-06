@@ -34,3 +34,6 @@ SET name = $2, generic_name = $3, form = $4, strength = $5,
     active = $10, updated_at = now()
 WHERE id = $1
 RETURNING *;
+
+-- name: GetProductByBarcode :one
+SELECT * FROM products WHERE barcode = $1;

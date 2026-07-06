@@ -46,6 +46,7 @@ type Querier interface {
 	GetCustomer(ctx context.Context, id uuid.UUID) (Customer, error)
 	GetPrescription(ctx context.Context, id uuid.UUID) (Prescription, error)
 	GetProduct(ctx context.Context, id uuid.UUID) (Product, error)
+	GetProductByBarcode(ctx context.Context, barcode *string) (Product, error)
 	GetPurchaseOrder(ctx context.Context, id uuid.UUID) (PurchaseOrder, error)
 	GetSale(ctx context.Context, id uuid.UUID) (Sale, error)
 	// Stock adjustment / return writes and the movement-ledger view ---------------

@@ -60,6 +60,19 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (store.Product, error) 
 	return p, nil
 }
 
+// GetByBarcode returns the product with the given barcode (POS scan lookup), or
+// httpx.ErrNotFound if none matches.
+func (s *Service) GetByBarcode(ctx context.Context, code string) (store.Product, error) {
+	p, err := s.repo.GetByBarcode(ctx, code)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return store.Product{}, httpx.ErrNotFound
+	}
+	if err != nil {
+		return store.Product{}, fmt.Errorf("catalog: get by barcode: %w", err)
+	}
+	return p, nil
+}
+
 // List returns a page of products, optionally filtered by a search term
 // matching name, generic name, or barcode.
 func (s *Service) List(ctx context.Context, search *string, p httpx.Pagination) (ListResult, error) {

@@ -151,6 +151,16 @@ paths:
       responses:
         "201": { description: Created }
 
+  /products/barcode/{code}:
+    get:
+      tags: [products]
+      summary: Look up a product by barcode (POS scan)
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/Error" }
+
   /suppliers:
     get: { tags: [suppliers], summary: List suppliers, responses: { "200": { description: OK } } }
     post: { tags: [suppliers], summary: Add a supplier (manager/admin), responses: { "201": { description: Created } } }

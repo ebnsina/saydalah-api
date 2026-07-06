@@ -99,6 +99,30 @@ func (q *Queries) GetProduct(ctx context.Context, id uuid.UUID) (Product, error)
 	return i, err
 }
 
+const getProductByBarcode = `-- name: GetProductByBarcode :one
+SELECT id, name, generic_name, form, strength, barcode, category, unit, reorder_level, active, created_at, updated_at FROM products WHERE barcode = $1
+`
+
+func (q *Queries) GetProductByBarcode(ctx context.Context, barcode *string) (Product, error) {
+	row := q.db.QueryRow(ctx, getProductByBarcode, barcode)
+	var i Product
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.GenericName,
+		&i.Form,
+		&i.Strength,
+		&i.Barcode,
+		&i.Category,
+		&i.Unit,
+		&i.ReorderLevel,
+		&i.Active,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listProducts = `-- name: ListProducts :many
 SELECT id, name, generic_name, form, strength, barcode, category, unit, reorder_level, active, created_at, updated_at FROM products
 WHERE (

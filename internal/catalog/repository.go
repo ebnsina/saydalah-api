@@ -12,6 +12,7 @@ import (
 type Repository interface {
 	Create(ctx context.Context, arg store.CreateProductParams) (store.Product, error)
 	Get(ctx context.Context, id uuid.UUID) (store.Product, error)
+	GetByBarcode(ctx context.Context, code string) (store.Product, error)
 	List(ctx context.Context, arg store.ListProductsParams) ([]store.Product, error)
 	Count(ctx context.Context, search *string) (int64, error)
 	Update(ctx context.Context, arg store.UpdateProductParams) (store.Product, error)
@@ -28,6 +29,10 @@ func (r *storeRepository) Create(ctx context.Context, arg store.CreateProductPar
 
 func (r *storeRepository) Get(ctx context.Context, id uuid.UUID) (store.Product, error) {
 	return r.q.GetProduct(ctx, id)
+}
+
+func (r *storeRepository) GetByBarcode(ctx context.Context, code string) (store.Product, error) {
+	return r.q.GetProductByBarcode(ctx, &code)
 }
 
 func (r *storeRepository) List(ctx context.Context, arg store.ListProductsParams) ([]store.Product, error) {

@@ -254,6 +254,28 @@ func TestStockTakeReconciliation(t *testing.T) {
 	}
 }
 
+func TestBarcodeLookup(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	code := "BC-" + uuid.NewString()
+	created, err := e.catalog.Create(ctx, catalog.CreateRequest{Name: "Scannable", Barcode: &code})
+	if err != nil {
+		t.Fatalf("create product: %v", err)
+	}
+
+	got, err := e.catalog.GetByBarcode(ctx, code)
+	if err != nil {
+		t.Fatalf("GetByBarcode: %v", err)
+	}
+	if got.ID != created.ID {
+		t.Errorf("barcode lookup returned %s, want %s", got.ID, created.ID)
+	}
+
+	if _, err := e.catalog.GetByBarcode(ctx, "does-not-exist"); !errors.Is(err, httpx.ErrNotFound) {
+		t.Errorf("unknown barcode should be not-found, got %v", err)
+	}
+}
+
 func TestSaleVoidRestoresStock(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
