@@ -17,6 +17,7 @@ type Repository interface {
 	RecordMovement(ctx context.Context, arg store.RecordStockMovementParams) (store.StockMovement, error)
 	SumReturned(ctx context.Context, arg store.SumReturnedForSaleBatchParams) (int64, error)
 	MarkVoided(ctx context.Context, arg store.MarkSaleVoidedParams) (store.Sale, error)
+	AddPayment(ctx context.Context, arg store.AddSalePaymentParams) (store.Sale, error)
 	CreateSale(ctx context.Context, arg store.CreateSaleParams) (store.Sale, error)
 	AddItem(ctx context.Context, arg store.AddSaleItemParams) (store.SaleItem, error)
 	GetSale(ctx context.Context, id uuid.UUID) (store.Sale, error)
@@ -71,6 +72,10 @@ func (r *storeRepository) SumReturned(ctx context.Context, arg store.SumReturned
 
 func (r *storeRepository) MarkVoided(ctx context.Context, arg store.MarkSaleVoidedParams) (store.Sale, error) {
 	return r.q.MarkSaleVoided(ctx, arg)
+}
+
+func (r *storeRepository) AddPayment(ctx context.Context, arg store.AddSalePaymentParams) (store.Sale, error) {
+	return r.q.AddSalePayment(ctx, arg)
 }
 
 func (r *storeRepository) CreateSale(ctx context.Context, arg store.CreateSaleParams) (store.Sale, error) {

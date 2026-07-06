@@ -106,6 +106,10 @@ func (f *fakeRepo) SumReturned(_ context.Context, _ store.SumReturnedForSaleBatc
 	return 0, nil
 }
 
+func (f *fakeRepo) AddPayment(_ context.Context, _ store.AddSalePaymentParams) (store.Sale, error) {
+	return store.Sale{}, nil
+}
+
 func (f *fakeRepo) MarkVoided(_ context.Context, _ store.MarkSaleVoidedParams) (store.Sale, error) {
 	return store.Sale{}, nil
 }

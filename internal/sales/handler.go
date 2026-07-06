@@ -55,6 +55,30 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, sale)
 }
 
+func (h *Handler) pay(w http.ResponseWriter, r *http.Request) {
+	id, ok := auth.IdentityFrom(r.Context())
+	if !ok {
+		httpx.Error(w, r, httpx.ErrUnauthorized)
+		return
+	}
+	saleID, err := httpx.URLParamUUID(r, "id")
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	var in PaymentRequest
+	if err := httpx.Decode(w, r, &in); err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	sale, err := h.svc.RecordPayment(r.Context(), id, saleID, in.Amount)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, sale)
+}
+
 func (h *Handler) void(w http.ResponseWriter, r *http.Request) {
 	id, ok := auth.IdentityFrom(r.Context())
 	if !ok {

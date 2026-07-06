@@ -46,6 +46,43 @@ func (q *Queries) AddSaleItem(ctx context.Context, arg AddSaleItemParams) (SaleI
 	return i, err
 }
 
+const addSalePayment = `-- name: AddSalePayment :one
+UPDATE sales
+SET paid = paid + $1
+WHERE id = $2 AND voided_at IS NULL
+RETURNING id, branch_id, cashier_id, customer_id, prescription_id, subtotal, discount, total, paid, payment_method, created_at, voided_at, voided_by, tax
+`
+
+type AddSalePaymentParams struct {
+	Amount decimal.Decimal `json:"amount"`
+	ID     uuid.UUID       `json:"id"`
+}
+
+// Mark a sale voided. The guard makes a second void a no-op (0 rows), so a
+// sale is never reversed twice.
+// Record a payment against a sale's outstanding balance (customer credit).
+func (q *Queries) AddSalePayment(ctx context.Context, arg AddSalePaymentParams) (Sale, error) {
+	row := q.db.QueryRow(ctx, addSalePayment, arg.Amount, arg.ID)
+	var i Sale
+	err := row.Scan(
+		&i.ID,
+		&i.BranchID,
+		&i.CashierID,
+		&i.CustomerID,
+		&i.PrescriptionID,
+		&i.Subtotal,
+		&i.Discount,
+		&i.Total,
+		&i.Paid,
+		&i.PaymentMethod,
+		&i.CreatedAt,
+		&i.VoidedAt,
+		&i.VoidedBy,
+		&i.Tax,
+	)
+	return i, err
+}
+
 const countSales = `-- name: CountSales :one
 SELECT count(*) FROM sales
 WHERE branch_id = $1
@@ -247,8 +284,6 @@ type MarkSaleVoidedParams struct {
 	VoidedBy *uuid.UUID `json:"voided_by"`
 }
 
-// Mark a sale voided. The guard makes a second void a no-op (0 rows), so a
-// sale is never reversed twice.
 func (q *Queries) MarkSaleVoided(ctx context.Context, arg MarkSaleVoidedParams) (Sale, error) {
 	row := q.db.QueryRow(ctx, markSaleVoided, arg.ID, arg.VoidedBy)
 	var i Sale

@@ -15,6 +15,10 @@ type Querier interface {
 	AddPrescriptionItem(ctx context.Context, arg AddPrescriptionItemParams) (PrescriptionItem, error)
 	AddPurchaseOrderItem(ctx context.Context, arg AddPurchaseOrderItemParams) (PurchaseOrderItem, error)
 	AddSaleItem(ctx context.Context, arg AddSaleItemParams) (SaleItem, error)
+	// Mark a sale voided. The guard makes a second void a no-op (0 rows), so a
+	// sale is never reversed twice.
+	// Record a payment against a sale's outstanding balance (customer credit).
+	AddSalePayment(ctx context.Context, arg AddSalePaymentParams) (Sale, error)
 	// Apply a signed delta to a batch, refusing to drive quantity negative.
 	// Zero rows returned means the adjustment would go below zero.
 	AdjustBatchQuantity(ctx context.Context, arg AdjustBatchQuantityParams) (StockBatch, error)
@@ -88,8 +92,6 @@ type Querier interface {
 	// Mark a PO received. The status guard makes double-receipt a no-op (0 rows),
 	// so stock is never added twice for the same order.
 	MarkPurchaseOrderReceived(ctx context.Context, id uuid.UUID) (PurchaseOrder, error)
-	// Mark a sale voided. The guard makes a second void a no-op (0 rows), so a
-	// sale is never reversed twice.
 	MarkSaleVoided(ctx context.Context, arg MarkSaleVoidedParams) (Sale, error)
 	// A trivial query used to verify database connectivity and the query pipeline.
 	Now(ctx context.Context) (time.Time, error)

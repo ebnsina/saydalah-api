@@ -42,6 +42,13 @@ WHERE type = 'return' AND ref_type = 'sale' AND ref_id = $1 AND batch_id = $2;
 
 -- Mark a sale voided. The guard makes a second void a no-op (0 rows), so a
 -- sale is never reversed twice.
+-- name: AddSalePayment :one
+-- Record a payment against a sale's outstanding balance (customer credit).
+UPDATE sales
+SET paid = paid + sqlc.arg('amount')
+WHERE id = sqlc.arg('id') AND voided_at IS NULL
+RETURNING *;
+
 -- name: MarkSaleVoided :one
 UPDATE sales
 SET voided_at = now(), voided_by = $2

@@ -29,6 +29,11 @@ type CreateRequest struct {
 	Lines []LineInput      `json:"lines" validate:"required,min=1,dive"`
 }
 
+// PaymentRequest records a payment against a sale's outstanding balance.
+type PaymentRequest struct {
+	Amount decimal.Decimal `json:"amount" validate:"required"`
+}
+
 // LineInput is a requested product and quantity to dispense.
 type LineInput struct {
 	ProductID uuid.UUID `json:"product_id" validate:"required"`

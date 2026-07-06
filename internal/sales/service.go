@@ -221,6 +221,41 @@ func (s *Service) Get(ctx context.Context, id auth.Identity, saleID uuid.UUID) (
 // return movements, and marks the sale voided. It is idempotent-guarded — a
 // second void is a conflict — and refuses a sale that already has a partial
 // return reconciled, since those are handled per-line by stock returns.
+// RecordPayment applies a payment to a sale's outstanding balance (settling
+// customer credit). The amount must be positive and not exceed what's due.
+func (s *Service) RecordPayment(ctx context.Context, id auth.Identity, saleID uuid.UUID, amount decimal.Decimal) (Response, error) {
+	sale, err := s.repo.GetSale(ctx, saleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Response{}, httpx.ErrNotFound
+	}
+	if err != nil {
+		return Response{}, fmt.Errorf("sales: get: %w", err)
+	}
+	if !id.CanAccessBranch(sale.BranchID) {
+		return Response{}, httpx.ErrForbidden
+	}
+	if sale.VoidedAt != nil {
+		return Response{}, fmt.Errorf("cannot pay a voided sale: %w", httpx.ErrConflict)
+	}
+	if amount.LessThanOrEqual(decimal.Zero) {
+		return Response{}, fmt.Errorf("payment must be positive: %w", httpx.ErrInvalidInput)
+	}
+	due := sale.Total.Sub(sale.Paid)
+	if amount.GreaterThan(due) {
+		return Response{}, fmt.Errorf("payment exceeds the %s balance due: %w", due, httpx.ErrInvalidInput)
+	}
+
+	updated, err := s.repo.AddPayment(ctx, store.AddSalePaymentParams{ID: sale.ID, Amount: amount})
+	if err != nil {
+		return Response{}, fmt.Errorf("sales: add payment: %w", err)
+	}
+	items, err := s.repo.ListItems(ctx, sale.ID)
+	if err != nil {
+		return Response{}, fmt.Errorf("sales: items: %w", err)
+	}
+	return toResponse(updated, items), nil
+}
+
 func (s *Service) Void(ctx context.Context, id auth.Identity, saleID uuid.UUID) (Response, error) {
 	sale, err := s.repo.GetSale(ctx, saleID)
 	if errors.Is(err, pgx.ErrNoRows) {
