@@ -13,8 +13,13 @@ RETURNING *;
 -- name: GetSale :one
 SELECT * FROM sales WHERE id = $1;
 
+-- Ordered by the dispensed batch's expiry (FEFO / dispensing order), with id as
+-- a stable tie-breaker, so receipt line items appear deterministically.
 -- name: ListSaleItems :many
-SELECT * FROM sale_items WHERE sale_id = $1 ORDER BY id;
+SELECT si.* FROM sale_items si
+JOIN stock_batches sb ON sb.id = si.batch_id
+WHERE si.sale_id = $1
+ORDER BY sb.expiry_date, si.id;
 
 -- name: ListSales :many
 SELECT * FROM sales

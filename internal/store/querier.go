@@ -69,6 +69,8 @@ type Querier interface {
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
 	ListPurchaseOrderItems(ctx context.Context, poID uuid.UUID) ([]PurchaseOrderItem, error)
 	ListPurchaseOrders(ctx context.Context, arg ListPurchaseOrdersParams) ([]PurchaseOrder, error)
+	// Ordered by the dispensed batch's expiry (FEFO / dispensing order), with id as
+	// a stable tie-breaker, so receipt line items appear deterministically.
 	ListSaleItems(ctx context.Context, saleID uuid.UUID) ([]SaleItem, error)
 	ListSales(ctx context.Context, arg ListSalesParams) ([]Sale, error)
 	ListStockMovements(ctx context.Context, arg ListStockMovementsParams) ([]ListStockMovementsRow, error)

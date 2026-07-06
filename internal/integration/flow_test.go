@@ -137,15 +137,17 @@ func TestReceiptThenFEFOSale(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sale: %v", err)
 	}
-	// FEFO must fully consume the earliest-expiring EARLY batch (10 @ 2.00)
-	// before drawing 5 from LATE (@ 3.00). Response order is not contractual, so
-	// match by unit price.
-	byPrice := map[string]int32{}
-	for _, it := range sale.Items {
-		byPrice[it.UnitPrice.String()] += it.Qty
+	// FEFO fully consumes the earliest-expiring EARLY batch (10 @ 2.00) before
+	// drawing 5 from LATE (@ 3.00). Line items are ordered by batch expiry, so
+	// EARLY comes first deterministically.
+	if len(sale.Items) != 2 {
+		t.Fatalf("expected 2 line items, got %d: %+v", len(sale.Items), sale.Items)
 	}
-	if len(sale.Items) != 2 || byPrice["2"] != 10 || byPrice["3"] != 5 {
-		t.Errorf("FEFO allocation wrong: %+v", sale.Items)
+	if !sale.Items[0].UnitPrice.Equal(money("2")) || sale.Items[0].Qty != 10 {
+		t.Errorf("first line should be 10 @ 2.00 (EARLY), got %+v", sale.Items[0])
+	}
+	if !sale.Items[1].UnitPrice.Equal(money("3")) || sale.Items[1].Qty != 5 {
+		t.Errorf("second line should be 5 @ 3.00 (LATE), got %+v", sale.Items[1])
 	}
 	if !sale.Subtotal.Equal(money("35")) {
 		t.Errorf("subtotal = %s, want 35", sale.Subtotal)

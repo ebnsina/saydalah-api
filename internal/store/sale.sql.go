@@ -130,9 +130,14 @@ func (q *Queries) GetSale(ctx context.Context, id uuid.UUID) (Sale, error) {
 }
 
 const listSaleItems = `-- name: ListSaleItems :many
-SELECT id, sale_id, batch_id, product_id, qty, unit_price FROM sale_items WHERE sale_id = $1 ORDER BY id
+SELECT si.id, si.sale_id, si.batch_id, si.product_id, si.qty, si.unit_price FROM sale_items si
+JOIN stock_batches sb ON sb.id = si.batch_id
+WHERE si.sale_id = $1
+ORDER BY sb.expiry_date, si.id
 `
 
+// Ordered by the dispensed batch's expiry (FEFO / dispensing order), with id as
+// a stable tie-breaker, so receipt line items appear deterministically.
 func (q *Queries) ListSaleItems(ctx context.Context, saleID uuid.UUID) ([]SaleItem, error) {
 	rows, err := q.db.Query(ctx, listSaleItems, saleID)
 	if err != nil {
