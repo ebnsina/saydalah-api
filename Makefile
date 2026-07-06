@@ -32,8 +32,11 @@ run: ## Run the API (migrations apply automatically at startup)
 build: ## Compile the API binary to ./bin/api
 	$(GO) build -o bin/api ./cmd/api
 
-test: ## Run all tests
+test: ## Run unit tests
 	$(GO) test ./... -race -count=1
+
+test-integration: ## Run integration tests (needs Docker; spins up Postgres)
+	$(GO) test -tags=integration ./internal/integration/... -count=1
 
 tidy: ## Tidy go.mod / go.sum
 	$(GO) mod tidy

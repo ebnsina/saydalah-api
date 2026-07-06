@@ -1,0 +1,232 @@
+//go:build integration
+
+package integration
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
+
+	"github.com/ebnsina/saydalah-api/internal/auth"
+	"github.com/ebnsina/saydalah-api/internal/branch"
+	"github.com/ebnsina/saydalah-api/internal/catalog"
+	"github.com/ebnsina/saydalah-api/internal/httpx"
+	"github.com/ebnsina/saydalah-api/internal/inventory"
+	"github.com/ebnsina/saydalah-api/internal/purchasing"
+	"github.com/ebnsina/saydalah-api/internal/sales"
+	"github.com/ebnsina/saydalah-api/internal/stock"
+	"github.com/ebnsina/saydalah-api/internal/store"
+	"github.com/ebnsina/saydalah-api/internal/supplier"
+	"github.com/ebnsina/saydalah-api/internal/user"
+)
+
+// env bundles the services under test wired to the shared store.
+type env struct {
+	st        *store.Store
+	branch    *branch.Service
+	catalog   *catalog.Service
+	supplier  *supplier.Service
+	purchase  *purchasing.Service
+	sales     *sales.Service
+	inventory *inventory.Service
+	stock     *stock.Service
+	admin     auth.Identity // an admin identity backed by a real users row
+}
+
+func newEnv(t *testing.T) *env {
+	t.Helper()
+	st := newStore()
+	e := &env{
+		st:        st,
+		branch:    branch.NewService(branch.NewRepository(st)),
+		catalog:   catalog.NewService(catalog.NewRepository(st)),
+		supplier:  supplier.NewService(supplier.NewRepository(st)),
+		purchase:  purchasing.NewService(purchasing.NewRepository(st)),
+		sales:     sales.NewService(sales.NewRepository(st)),
+		inventory: inventory.NewService(inventory.NewRepository(st)),
+		stock:     stock.NewService(stock.NewRepository(st)),
+	}
+	// A sale's cashier_id references users(id), so the acting identity must be a
+	// real user.
+	u, err := user.NewService(user.NewRepository(st)).Create(context.Background(), user.CreateRequest{
+		Email:    "admin+" + uuid.NewString() + "@test.local",
+		Password: "password123",
+		Role:     store.UserRoleAdmin,
+	})
+	if err != nil {
+		t.Fatalf("seed admin user: %v", err)
+	}
+	e.admin = auth.Identity{UserID: u.ID, Role: store.UserRoleAdmin}
+	return e
+}
+
+// seedBranchAndProduct creates an isolated branch, product, and supplier so each
+// test's stock math is independent.
+func (e *env) seedBranchAndProduct(t *testing.T) (branchID, productID, supplierID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	b, err := e.branch.Create(ctx, branch.CreateRequest{Name: "Branch " + uuid.NewString()})
+	if err != nil {
+		t.Fatalf("create branch: %v", err)
+	}
+	p, err := e.catalog.Create(ctx, catalog.CreateRequest{Name: "Drug " + uuid.NewString(), Unit: "tablet"})
+	if err != nil {
+		t.Fatalf("create product: %v", err)
+	}
+	s, err := e.supplier.Create(ctx, supplier.CreateRequest{Name: "Supplier " + uuid.NewString()})
+	if err != nil {
+		t.Fatalf("create supplier: %v", err)
+	}
+	return b.ID, p.ID, s.ID
+}
+
+func money(s string) decimal.Decimal { return decimal.RequireFromString(s) }
+
+func (e *env) onHand(t *testing.T, branchID, productID uuid.UUID) int64 {
+	t.Helper()
+	res, err := e.inventory.OnHand(context.Background(), e.admin, &branchID, productID)
+	if err != nil {
+		t.Fatalf("on-hand: %v", err)
+	}
+	return res.OnHand
+}
+
+// receiveTwoBatches places a PO and receives an early (small) and a late (large)
+// batch so FEFO behavior can be exercised.
+func (e *env) receiveTwoBatches(t *testing.T, branchID, productID, supplierID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	po, err := e.purchase.Create(ctx, e.admin, purchasing.CreateRequest{
+		BranchID:   &branchID,
+		SupplierID: supplierID,
+		Items:      []purchasing.ItemInput{{ProductID: productID, Qty: 110, UnitCost: money("1")}},
+	})
+	if err != nil {
+		t.Fatalf("create PO: %v", err)
+	}
+	_, err = e.purchase.Receive(ctx, e.admin, po.ID, purchasing.ReceiveRequest{
+		Lines: []purchasing.ReceiveLine{
+			{ProductID: productID, BatchNo: "EARLY", Quantity: 10, CostPrice: money("1"), SalePrice: money("2"), ExpiryDate: time.Now().AddDate(0, 0, 30)},
+			{ProductID: productID, BatchNo: "LATE", Quantity: 100, CostPrice: money("1"), SalePrice: money("3"), ExpiryDate: time.Now().AddDate(0, 0, 365)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("receive PO: %v", err)
+	}
+}
+
+func TestReceiptThenFEFOSale(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	branchID, productID, supplierID := e.seedBranchAndProduct(t)
+
+	e.receiveTwoBatches(t, branchID, productID, supplierID)
+	if got := e.onHand(t, branchID, productID); got != 110 {
+		t.Fatalf("on-hand after receipt = %d, want 110", got)
+	}
+
+	sale, err := e.sales.Create(ctx, e.admin, sales.CreateRequest{
+		BranchID:      &branchID,
+		PaymentMethod: store.PaymentMethodCash,
+		Lines:         []sales.LineInput{{ProductID: productID, Qty: 15}},
+	})
+	if err != nil {
+		t.Fatalf("sale: %v", err)
+	}
+	// FEFO must fully consume the earliest-expiring EARLY batch (10 @ 2.00)
+	// before drawing 5 from LATE (@ 3.00). Response order is not contractual, so
+	// match by unit price.
+	byPrice := map[string]int32{}
+	for _, it := range sale.Items {
+		byPrice[it.UnitPrice.String()] += it.Qty
+	}
+	if len(sale.Items) != 2 || byPrice["2"] != 10 || byPrice["3"] != 5 {
+		t.Errorf("FEFO allocation wrong: %+v", sale.Items)
+	}
+	if !sale.Subtotal.Equal(money("35")) {
+		t.Errorf("subtotal = %s, want 35", sale.Subtotal)
+	}
+	if got := e.onHand(t, branchID, productID); got != 95 {
+		t.Errorf("on-hand after sale = %d, want 95", got)
+	}
+}
+
+func TestSaleInsufficientStockRollsBack(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	branchID, productID, supplierID := e.seedBranchAndProduct(t)
+	e.receiveTwoBatches(t, branchID, productID, supplierID)
+
+	_, err := e.sales.Create(ctx, e.admin, sales.CreateRequest{
+		BranchID:      &branchID,
+		PaymentMethod: store.PaymentMethodCash,
+		Lines:         []sales.LineInput{{ProductID: productID, Qty: 100_000}},
+	})
+	if !errors.Is(err, httpx.ErrInsufficientStock) {
+		t.Fatalf("expected insufficient stock, got %v", err)
+	}
+	if got := e.onHand(t, branchID, productID); got != 110 {
+		t.Errorf("on-hand should be unchanged at 110 after failed sale, got %d", got)
+	}
+}
+
+func TestTransferBetweenBranches(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	src, productID, supplierID := e.seedBranchAndProduct(t)
+	e.receiveTwoBatches(t, src, productID, supplierID)
+
+	dst, err := e.branch.Create(ctx, branch.CreateRequest{Name: "Dst " + uuid.NewString()})
+	if err != nil {
+		t.Fatalf("create dst branch: %v", err)
+	}
+
+	// Pick the LATE batch (the one with stock and a far expiry).
+	batches, err := e.st.ListDispensableBatches(ctx, store.ListDispensableBatchesParams{BranchID: src, ProductID: productID})
+	if err != nil || len(batches) == 0 {
+		t.Fatalf("list batches: %v", err)
+	}
+	late := batches[len(batches)-1]
+
+	if _, err := e.stock.Transfer(ctx, e.admin, stock.TransferRequest{
+		BatchID: late.ID, ToBranchID: dst.ID, Qty: 20,
+	}); err != nil {
+		t.Fatalf("transfer: %v", err)
+	}
+	if got := e.onHand(t, dst.ID, productID); got != 20 {
+		t.Errorf("destination on-hand = %d, want 20", got)
+	}
+	if got := e.onHand(t, src, productID); got != 90 {
+		t.Errorf("source on-hand = %d, want 90", got)
+	}
+}
+
+func TestSaleLinkedReturnCap(t *testing.T) {
+	e := newEnv(t)
+	ctx := context.Background()
+	branchID, productID, supplierID := e.seedBranchAndProduct(t)
+	e.receiveTwoBatches(t, branchID, productID, supplierID)
+
+	sale, err := e.sales.Create(ctx, e.admin, sales.CreateRequest{
+		BranchID:      &branchID,
+		PaymentMethod: store.PaymentMethodCash,
+		Lines:         []sales.LineInput{{ProductID: productID, Qty: 4}},
+	})
+	if err != nil {
+		t.Fatalf("sale: %v", err)
+	}
+	batchID := sale.Items[0].BatchID
+
+	// Returning 3 of 4 is allowed.
+	if _, err := e.stock.Return(ctx, e.admin, stock.ReturnRequest{BatchID: batchID, Qty: 3, SaleID: &sale.ID}); err != nil {
+		t.Fatalf("valid return: %v", err)
+	}
+	// A further 2 would exceed the 4 sold.
+	if _, err := e.stock.Return(ctx, e.admin, stock.ReturnRequest{BatchID: batchID, Qty: 2, SaleID: &sale.ID}); !errors.Is(err, httpx.ErrInvalidInput) {
+		t.Fatalf("over-return should be rejected, got %v", err)
+	}
+}

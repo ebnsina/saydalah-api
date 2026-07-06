@@ -48,6 +48,9 @@ jobs:
       - name: Test
         run: go test ./... -race -count=1
 
+      - name: Integration tests (testcontainers)
+        run: go test -tags=integration ./internal/integration/... -count=1
+
   lint:
     runs-on: ubuntu-latest
     steps:

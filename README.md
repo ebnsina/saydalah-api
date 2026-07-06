@@ -87,6 +87,12 @@ The full contract is in [`api/openapi.yaml`](api/openapi.yaml).
 
 ## Quality
 
-`make test` runs unit tests (FEFO dispensing, auth/JWT, tenant isolation, pagination). CI
-(`.github/workflows/ci.yml`) builds, vets, checks that `internal/store` is regenerated, runs tests
-against a real Postgres service, and lints with golangci-lint (`.golangci.yml`).
+`make test` runs unit tests (FEFO dispensing, auth/JWT, tenant isolation, pagination).
+`make test-integration` runs `-tags=integration` tests that spin up **real Postgres via
+testcontainers** and drive the services end-to-end (goods receipt → FEFO sale + rollback →
+inter-branch transfer → sale-linked return); it needs a running Docker daemon. CI
+(`.github/workflows/ci.yml`) builds, vets, checks that `internal/store` is regenerated, runs both
+unit and integration tests, and lints with golangci-lint (`.golangci.yml`).
+
+> Using OrbStack/Colima instead of Docker Desktop? Point testcontainers at the socket, e.g.
+> `export DOCKER_HOST=unix://$HOME/.orbstack/run/docker.sock`.
