@@ -18,6 +18,11 @@ type Repository interface {
 	ListMovements(ctx context.Context, arg store.ListStockMovementsParams) ([]store.ListStockMovementsRow, error)
 	CountMovements(ctx context.Context, arg store.CountStockMovementsParams) (int64, error)
 
+	// Sale reconciliation, used to validate sale-linked returns.
+	GetSale(ctx context.Context, id uuid.UUID) (store.Sale, error)
+	ListSaleItems(ctx context.Context, saleID uuid.UUID) ([]store.SaleItem, error)
+	SumReturnedForSaleBatch(ctx context.Context, arg store.SumReturnedForSaleBatchParams) (int64, error)
+
 	Tx(ctx context.Context, fn func(Repository) error) error
 }
 
@@ -59,4 +64,16 @@ func (r *storeRepository) ListMovements(ctx context.Context, arg store.ListStock
 
 func (r *storeRepository) CountMovements(ctx context.Context, arg store.CountStockMovementsParams) (int64, error) {
 	return r.q.CountStockMovements(ctx, arg)
+}
+
+func (r *storeRepository) GetSale(ctx context.Context, id uuid.UUID) (store.Sale, error) {
+	return r.q.GetSale(ctx, id)
+}
+
+func (r *storeRepository) ListSaleItems(ctx context.Context, saleID uuid.UUID) ([]store.SaleItem, error) {
+	return r.q.ListSaleItems(ctx, saleID)
+}
+
+func (r *storeRepository) SumReturnedForSaleBatch(ctx context.Context, arg store.SumReturnedForSaleBatchParams) (int64, error) {
+	return r.q.SumReturnedForSaleBatch(ctx, arg)
 }

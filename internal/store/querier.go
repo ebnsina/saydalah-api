@@ -87,6 +87,9 @@ type Querier interface {
 	SalesSummary(ctx context.Context, arg SalesSummaryParams) (SalesSummaryRow, error)
 	SetUserPassword(ctx context.Context, arg SetUserPasswordParams) error
 	StockOnHand(ctx context.Context, arg StockOnHandParams) (int64, error)
+	// Total units already returned to a given batch against a given sale. Used to
+	// cap sale-linked returns at the quantity actually dispensed.
+	SumReturnedForSaleBatch(ctx context.Context, arg SumReturnedForSaleBatchParams) (int64, error)
 	TopSellingProducts(ctx context.Context, arg TopSellingProductsParams) ([]TopSellingProductsRow, error)
 	UpdateBranch(ctx context.Context, arg UpdateBranchParams) (Branch, error)
 	UpdateCustomer(ctx context.Context, arg UpdateCustomerParams) (Customer, error)

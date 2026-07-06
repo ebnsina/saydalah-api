@@ -17,6 +17,12 @@ type fakeRepo struct {
 	batch     store.StockBatch
 	movements []store.RecordStockMovementParams
 	created   []store.StockBatch
+
+	// Sale-linked return fixtures.
+	sale         store.Sale
+	saleItems    []store.SaleItem
+	alreadyRet   int64
+	saleNotFound bool
 }
 
 func (f *fakeRepo) Tx(ctx context.Context, fn func(Repository) error) error { return fn(f) }
@@ -52,6 +58,21 @@ func (f *fakeRepo) ListMovements(context.Context, store.ListStockMovementsParams
 }
 func (f *fakeRepo) CountMovements(context.Context, store.CountStockMovementsParams) (int64, error) {
 	return 0, nil
+}
+
+func (f *fakeRepo) GetSale(context.Context, uuid.UUID) (store.Sale, error) {
+	if f.saleNotFound {
+		return store.Sale{}, pgx.ErrNoRows
+	}
+	return f.sale, nil
+}
+
+func (f *fakeRepo) ListSaleItems(context.Context, uuid.UUID) ([]store.SaleItem, error) {
+	return f.saleItems, nil
+}
+
+func (f *fakeRepo) SumReturnedForSaleBatch(context.Context, store.SumReturnedForSaleBatchParams) (int64, error) {
+	return f.alreadyRet, nil
 }
 
 var (
@@ -147,6 +168,65 @@ func TestTransferRejectsSameBranch(t *testing.T) {
 	})
 	if !errors.Is(err, httpx.ErrInvalidInput) {
 		t.Fatalf("expected invalid input for same-branch transfer, got %v", err)
+	}
+}
+
+func TestSaleLinkedReturnWithinSoldQuantity(t *testing.T) {
+	b := newBatch(0)
+	saleID := uuid.New()
+	repo := &fakeRepo{
+		batch:      b,
+		sale:       store.Sale{ID: saleID, BranchID: branchID},
+		saleItems:  []store.SaleItem{{BatchID: b.ID, Qty: 5}},
+		alreadyRet: 2, // 2 of 5 already returned; 3 remain
+	}
+	res, err := NewService(repo).Return(context.Background(), manager, ReturnRequest{
+		BatchID: b.ID, Qty: 3, SaleID: &saleID,
+	})
+	if err != nil {
+		t.Fatalf("Return: %v", err)
+	}
+	if res.Quantity != 3 {
+		t.Errorf("quantity = %d, want 3", res.Quantity)
+	}
+	if repo.movements[0].RefType != "sale" || repo.movements[0].RefID == nil {
+		t.Errorf("sale-linked return should reference the sale, got %+v", repo.movements[0])
+	}
+}
+
+func TestSaleLinkedReturnExceedingSoldIsRejected(t *testing.T) {
+	b := newBatch(0)
+	saleID := uuid.New()
+	repo := &fakeRepo{
+		batch:      b,
+		sale:       store.Sale{ID: saleID, BranchID: branchID},
+		saleItems:  []store.SaleItem{{BatchID: b.ID, Qty: 5}},
+		alreadyRet: 4, // only 1 remains
+	}
+	_, err := NewService(repo).Return(context.Background(), manager, ReturnRequest{
+		BatchID: b.ID, Qty: 3, SaleID: &saleID,
+	})
+	if !errors.Is(err, httpx.ErrInvalidInput) {
+		t.Fatalf("expected invalid input, got %v", err)
+	}
+	if len(repo.movements) != 0 {
+		t.Errorf("no movement should be recorded on rejection")
+	}
+}
+
+func TestSaleLinkedReturnBatchNotInSale(t *testing.T) {
+	b := newBatch(0)
+	saleID := uuid.New()
+	repo := &fakeRepo{
+		batch:     b,
+		sale:      store.Sale{ID: saleID, BranchID: branchID},
+		saleItems: []store.SaleItem{{BatchID: uuid.New(), Qty: 5}}, // different batch
+	}
+	_, err := NewService(repo).Return(context.Background(), manager, ReturnRequest{
+		BatchID: b.ID, Qty: 1, SaleID: &saleID,
+	})
+	if !errors.Is(err, httpx.ErrInvalidInput) {
+		t.Fatalf("expected invalid input for batch not in sale, got %v", err)
 	}
 }
 

@@ -24,3 +24,10 @@ LIMIT $2 OFFSET $3;
 
 -- name: CountSales :one
 SELECT count(*) FROM sales WHERE branch_id = $1;
+
+-- Total units already returned to a given batch against a given sale. Used to
+-- cap sale-linked returns at the quantity actually dispensed.
+-- name: SumReturnedForSaleBatch :one
+SELECT COALESCE(SUM(qty), 0)::bigint AS returned
+FROM stock_movements
+WHERE type = 'return' AND ref_type = 'sale' AND ref_id = $1 AND batch_id = $2;

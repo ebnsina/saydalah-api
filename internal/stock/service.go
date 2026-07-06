@@ -36,13 +36,62 @@ func (s *Service) Adjust(ctx context.Context, id auth.Identity, in AdjustRequest
 }
 
 // Return puts quantity back into a batch (a customer return) and records a
-// 'return' movement, optionally linked to the originating sale.
+// 'return' movement. When linked to a sale, it is reconciled against that sale:
+// the batch must have been dispensed in it and the cumulative returned quantity
+// may not exceed what was sold from that batch.
 func (s *Service) Return(ctx context.Context, id auth.Identity, in ReturnRequest) (BatchResponse, error) {
 	refType := "return"
 	if in.SaleID != nil {
 		refType = "sale"
+		if err := s.validateSaleReturn(ctx, id, in); err != nil {
+			return BatchResponse{}, err
+		}
 	}
 	return s.apply(ctx, id, in.BatchID, in.Qty, store.MovementTypeReturn, refType, in.SaleID, in.Note)
+}
+
+// validateSaleReturn enforces that a sale-linked return is legitimate: the sale
+// exists in a branch the caller can access, the batch was actually sold in it,
+// and qty + already-returned does not exceed the quantity dispensed from that
+// batch.
+func (s *Service) validateSaleReturn(ctx context.Context, id auth.Identity, in ReturnRequest) error {
+	sale, err := s.repo.GetSale(ctx, *in.SaleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("sale not found: %w", httpx.ErrInvalidInput)
+	}
+	if err != nil {
+		return fmt.Errorf("stock: get sale: %w", err)
+	}
+	if !id.CanAccessBranch(sale.BranchID) {
+		return httpx.ErrForbidden
+	}
+
+	items, err := s.repo.ListSaleItems(ctx, sale.ID)
+	if err != nil {
+		return fmt.Errorf("stock: sale items: %w", err)
+	}
+	var sold int64
+	for _, it := range items {
+		if it.BatchID == in.BatchID {
+			sold += int64(it.Qty)
+		}
+	}
+	if sold == 0 {
+		return fmt.Errorf("batch was not dispensed in this sale: %w", httpx.ErrInvalidInput)
+	}
+
+	returned, err := s.repo.SumReturnedForSaleBatch(ctx, store.SumReturnedForSaleBatchParams{
+		RefID:   in.SaleID,
+		BatchID: &in.BatchID,
+	})
+	if err != nil {
+		return fmt.Errorf("stock: sum returned: %w", err)
+	}
+	if returned+int64(in.Qty) > sold {
+		return fmt.Errorf("return exceeds quantity sold (%d sold, %d already returned): %w",
+			sold, returned, httpx.ErrInvalidInput)
+	}
+	return nil
 }
 
 // apply loads and authorizes the batch, then adjusts its quantity and records

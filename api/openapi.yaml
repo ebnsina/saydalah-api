@@ -258,6 +258,10 @@ paths:
     post:
       tags: [stock]
       summary: Return quantity to a batch (pharmacist/manager)
+      description: >
+        When sale_id is supplied, the return is reconciled against that sale:
+        the batch must have been dispensed in it, and the cumulative returned
+        quantity may not exceed what was sold from that batch.
       requestBody:
         required: true
         content:

@@ -204,3 +204,23 @@ func (q *Queries) ListSales(ctx context.Context, arg ListSalesParams) ([]Sale, e
 	}
 	return items, nil
 }
+
+const sumReturnedForSaleBatch = `-- name: SumReturnedForSaleBatch :one
+SELECT COALESCE(SUM(qty), 0)::bigint AS returned
+FROM stock_movements
+WHERE type = 'return' AND ref_type = 'sale' AND ref_id = $1 AND batch_id = $2
+`
+
+type SumReturnedForSaleBatchParams struct {
+	RefID   *uuid.UUID `json:"ref_id"`
+	BatchID *uuid.UUID `json:"batch_id"`
+}
+
+// Total units already returned to a given batch against a given sale. Used to
+// cap sale-linked returns at the quantity actually dispensed.
+func (q *Queries) SumReturnedForSaleBatch(ctx context.Context, arg SumReturnedForSaleBatchParams) (int64, error) {
+	row := q.db.QueryRow(ctx, sumReturnedForSaleBatch, arg.RefID, arg.BatchID)
+	var returned int64
+	err := row.Scan(&returned)
+	return returned, err
+}
