@@ -16,12 +16,13 @@ import (
 type MovementType string
 
 const (
-	MovementTypePurchase    MovementType = "purchase"
-	MovementTypeSale        MovementType = "sale"
-	MovementTypeAdjustment  MovementType = "adjustment"
-	MovementTypeReturn      MovementType = "return"
-	MovementTypeTransferOut MovementType = "transfer_out"
-	MovementTypeTransferIn  MovementType = "transfer_in"
+	MovementTypePurchase       MovementType = "purchase"
+	MovementTypeSale           MovementType = "sale"
+	MovementTypeAdjustment     MovementType = "adjustment"
+	MovementTypeReturn         MovementType = "return"
+	MovementTypeTransferOut    MovementType = "transfer_out"
+	MovementTypeTransferIn     MovementType = "transfer_in"
+	MovementTypePurchaseReturn MovementType = "purchase_return"
 )
 
 func (e *MovementType) Scan(src interface{}) error {

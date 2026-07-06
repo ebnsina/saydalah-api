@@ -103,6 +103,12 @@ func (s *Service) validateSaleReturn(ctx context.Context, id auth.Identity, in R
 
 // apply loads and authorizes the batch, then adjusts its quantity and records
 // the movement in one transaction.
+// PurchaseReturn removes quantity from a batch (returning it to the supplier),
+// recording a purchase_return movement.
+func (s *Service) PurchaseReturn(ctx context.Context, id auth.Identity, in PurchaseReturnRequest) (BatchResponse, error) {
+	return s.apply(ctx, id, in.BatchID, -in.Qty, store.MovementTypePurchaseReturn, "purchase_return", nil, in.Note)
+}
+
 func (s *Service) apply(
 	ctx context.Context,
 	id auth.Identity,

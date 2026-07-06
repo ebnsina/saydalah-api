@@ -30,6 +30,14 @@ type ReturnRequest struct {
 	Note    string     `json:"note"     validate:"max=255"`
 }
 
+// PurchaseReturnRequest returns quantity from a batch back to the supplier
+// (e.g. damaged or recalled stock). Qty is the positive number of units leaving.
+type PurchaseReturnRequest struct {
+	BatchID uuid.UUID `json:"batch_id" validate:"required"`
+	Qty     int32     `json:"qty"      validate:"required,gt=0"`
+	Note    string    `json:"note"     validate:"max=255"`
+}
+
 // TransferRequest moves stock from a source batch to another branch. The source
 // branch is the batch's own branch (the caller must be able to access it); the
 // destination must be a different, existing branch.
