@@ -34,13 +34,10 @@ import (
 func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager, cfg config.Config) {
 	api := srv.API()
 
-	authMod := auth.New(st, tm)
-	// Login gets a stricter, dedicated rate limit on top of the global one to
-	// blunt credential brute-forcing.
-	api.Group(func(r chi.Router) {
-		r.Use(middleware.RateLimit(cfg.LoginRateRPS, cfg.LoginRateBurst))
-		authMod.MountPublic(r)
-	})
+	authMod := auth.New(st, tm, cfg.RefreshTTL)
+	// Login gets a stricter, dedicated rate limit (on top of the global one) to
+	// blunt credential brute-forcing; refresh/logout are not throttled by it.
+	authMod.MountPublic(api, middleware.RateLimit(cfg.LoginRateRPS, cfg.LoginRateBurst))
 
 	api.Group(func(r chi.Router) {
 		r.Use(middleware.Authenticate(tm))

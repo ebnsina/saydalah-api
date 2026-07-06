@@ -99,7 +99,7 @@ Requests are rate-limited per client IP (429 + `Retry-After`), with a stricter l
 
 Mounted under `/api/v1`, all behind a JWT except `POST /auth/login`:
 
-- `auth` — `POST /auth/login`, `GET /auth/me`
+- `auth` — `POST /auth/login`, `POST /auth/refresh` (rotating), `POST /auth/logout`, `GET /auth/me`
 - `branches`, `users` — chain administration (manager/admin)
 - `products`, `suppliers` — master catalog (read: all staff; write: manager/admin); `GET /products/barcode/{code}` for POS scan lookup
 - `purchase-orders` — ordering + `POST /{id}/receive` (creates stock batches)

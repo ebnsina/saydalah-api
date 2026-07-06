@@ -26,15 +26,18 @@ import (
 
 // env bundles the services under test wired to the shared store.
 type env struct {
-	st        *store.Store
-	branch    *branch.Service
-	catalog   *catalog.Service
-	supplier  *supplier.Service
-	purchase  *purchasing.Service
-	sales     *sales.Service
-	inventory *inventory.Service
-	stock     *stock.Service
-	admin     auth.Identity // an admin identity backed by a real users row
+	st         *store.Store
+	branch     *branch.Service
+	catalog    *catalog.Service
+	supplier   *supplier.Service
+	purchase   *purchasing.Service
+	sales      *sales.Service
+	inventory  *inventory.Service
+	stock      *stock.Service
+	auth       *auth.Service
+	admin      auth.Identity // an admin identity backed by a real users row
+	adminEmail string
+	adminPass  string
 }
 
 func newEnv(t *testing.T) *env {
@@ -49,12 +52,15 @@ func newEnv(t *testing.T) *env {
 		sales:     sales.NewService(sales.NewRepository(st)),
 		inventory: inventory.NewService(inventory.NewRepository(st)),
 		stock:     stock.NewService(stock.NewRepository(st)),
+		auth:      auth.NewService(auth.NewRepository(st), auth.NewTokenManager("test-secret", time.Hour), time.Hour),
 	}
 	// A sale's cashier_id references users(id), so the acting identity must be a
 	// real user.
+	e.adminEmail = "admin+" + uuid.NewString() + "@test.local"
+	e.adminPass = "password123"
 	u, err := user.NewService(user.NewRepository(st)).Create(context.Background(), user.CreateRequest{
-		Email:    "admin+" + uuid.NewString() + "@test.local",
-		Password: "password123",
+		Email:    e.adminEmail,
+		Password: e.adminPass,
 		Role:     store.UserRoleAdmin,
 	})
 	if err != nil {

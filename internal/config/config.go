@@ -23,6 +23,7 @@ type Config struct {
 	DatabaseURL     string        // postgres connection string
 	JWTSecret       string        // signing key for access tokens
 	JWTTTL          time.Duration // access-token lifetime
+	RefreshTTL      time.Duration // refresh-token lifetime
 	CORSOrigins     []string      // allowed browser origins (future SvelteKit app)
 	ShutdownTimeout time.Duration // graceful shutdown grace period
 
@@ -50,6 +51,7 @@ func Load() (Config, error) {
 		DatabaseURL:     p.require("DATABASE_URL"),
 		JWTSecret:       p.require("JWT_SECRET"),
 		JWTTTL:          p.duration("JWT_TTL", 24*time.Hour),
+		RefreshTTL:      p.duration("REFRESH_TTL", 30*24*time.Hour),
 		CORSOrigins:     p.csv("CORS_ORIGINS", []string{"http://localhost:5173"}),
 		ShutdownTimeout: p.duration("SHUTDOWN_TIMEOUT", 10*time.Second),
 		RateLimitRPS:    p.floatMin("RATE_LIMIT_RPS", 20, 0),

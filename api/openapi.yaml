@@ -51,9 +51,45 @@ paths:
                 type: object
                 properties:
                   access_token: { type: string }
+                  refresh_token: { type: string }
                   expires_at: { type: string, format: date-time }
                   user: { $ref: "#/components/schemas/UserInfo" }
         "401": { $ref: "#/components/responses/Error" }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Rotate a refresh token for a new access + refresh pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "200": { description: New token pair issued }
+        "401": { description: Invalid/expired/reused refresh token, $ref: "#/components/responses/Error" }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke a refresh token (idempotent)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "204": { description: Revoked (or already invalid) }
 
   /auth/me:
     get:

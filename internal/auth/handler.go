@@ -28,6 +28,33 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, res)
 }
 
+func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
+	var in RefreshRequest
+	if err := httpx.Decode(w, r, &in); err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	res, err := h.svc.Refresh(r.Context(), in)
+	if err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, res)
+}
+
+func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
+	var in RefreshRequest
+	if err := httpx.Decode(w, r, &in); err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	if err := h.svc.Logout(r.Context(), in); err != nil {
+		httpx.Error(w, r, err)
+		return
+	}
+	httpx.NoContent(w)
+}
+
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
 	id, ok := IdentityFrom(r.Context())
 	if !ok {

@@ -14,11 +14,18 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
-// LoginResponse returns the access token, its expiry, and the signed-in user.
+// LoginResponse returns the access token (and its expiry), a rotating refresh
+// token, and the signed-in user.
 type LoginResponse struct {
-	AccessToken string    `json:"access_token"`
-	ExpiresAt   time.Time `json:"expires_at"`
-	User        UserInfo  `json:"user"`
+	AccessToken  string    `json:"access_token"`
+	RefreshToken string    `json:"refresh_token"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	User         UserInfo  `json:"user"`
+}
+
+// RefreshRequest carries a refresh token, used by both refresh and logout.
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 // UserInfo is the safe subset of a user returned to clients.

@@ -262,6 +262,15 @@ type PurchaseOrderItem struct {
 	UnitCost  decimal.Decimal `json:"unit_cost"`
 }
 
+type RefreshToken struct {
+	ID        uuid.UUID  `json:"id"`
+	UserID    uuid.UUID  `json:"user_id"`
+	TokenHash string     `json:"token_hash"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	RevokedAt *time.Time `json:"revoked_at"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
 type Sale struct {
 	ID             uuid.UUID       `json:"id"`
 	BranchID       uuid.UUID       `json:"branch_id"`

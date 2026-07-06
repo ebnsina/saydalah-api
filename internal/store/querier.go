@@ -33,6 +33,7 @@ type Querier interface {
 	CreatePrescription(ctx context.Context, arg CreatePrescriptionParams) (Prescription, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (Product, error)
 	CreatePurchaseOrder(ctx context.Context, arg CreatePurchaseOrderParams) (PurchaseOrder, error)
+	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	CreateSale(ctx context.Context, arg CreateSaleParams) (Sale, error)
 	// Inventory write queries. Batches and the movement ledger are written by the
 	// purchasing (goods-received) and sales (dispensing) flows inside a transaction.
@@ -48,6 +49,7 @@ type Querier interface {
 	GetProduct(ctx context.Context, id uuid.UUID) (Product, error)
 	GetProductByBarcode(ctx context.Context, barcode *string) (Product, error)
 	GetPurchaseOrder(ctx context.Context, id uuid.UUID) (PurchaseOrder, error)
+	GetRefreshToken(ctx context.Context, tokenHash string) (RefreshToken, error)
 	GetSale(ctx context.Context, id uuid.UUID) (Sale, error)
 	// Stock adjustment / return writes and the movement-ledger view ---------------
 	GetStockBatch(ctx context.Context, id uuid.UUID) (StockBatch, error)
@@ -89,6 +91,9 @@ type Querier interface {
 	// A trivial query used to verify database connectivity and the query pipeline.
 	Now(ctx context.Context) (time.Time, error)
 	RecordStockMovement(ctx context.Context, arg RecordStockMovementParams) (StockMovement, error)
+	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	// Revoke every active token for a user (logout-all, or reuse detection).
+	RevokeUserRefreshTokens(ctx context.Context, userID uuid.UUID) error
 	SalesDaily(ctx context.Context, arg SalesDailyParams) ([]SalesDailyRow, error)
 	SalesSummary(ctx context.Context, arg SalesSummaryParams) (SalesSummaryRow, error)
 	// Set a batch to an absolute counted quantity (physical stock-take), locking the
