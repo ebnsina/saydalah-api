@@ -26,9 +26,10 @@ func NewService(repo Repository) *Service { return &Service{repo: repo} }
 // movement-ledger rows.
 func actor(id auth.Identity) *uuid.UUID { u := id.UserID; return &u }
 
-// ListResult is a page of purchase orders plus the total count for a branch.
+// ListResult is a page of purchase orders (with their line items) plus the
+// total count for a branch.
 type ListResult struct {
-	Items []store.PurchaseOrder
+	Items []OrderResponse
 	Total int64
 }
 
@@ -103,7 +104,7 @@ func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *u
 	if err != nil {
 		return ListResult{}, err
 	}
-	items, err := s.repo.ListOrders(ctx, store.ListPurchaseOrdersParams{
+	orders, err := s.repo.ListOrders(ctx, store.ListPurchaseOrdersParams{
 		BranchID: branchID,
 		Limit:    p.Limit,
 		Offset:   p.Offset,
@@ -111,11 +112,19 @@ func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *u
 	if err != nil {
 		return ListResult{}, fmt.Errorf("purchasing: list: %w", err)
 	}
+	responses := make([]OrderResponse, 0, len(orders))
+	for _, po := range orders {
+		lineItems, err := s.repo.ListItems(ctx, po.ID)
+		if err != nil {
+			return ListResult{}, fmt.Errorf("purchasing: list items: %w", err)
+		}
+		responses = append(responses, toResponse(po, lineItems))
+	}
 	total, err := s.repo.CountOrders(ctx, branchID)
 	if err != nil {
 		return ListResult{}, fmt.Errorf("purchasing: count: %w", err)
 	}
-	return ListResult{Items: items, Total: total}, nil
+	return ListResult{Items: responses, Total: total}, nil
 }
 
 // Receive records goods received against an order: it marks the order received

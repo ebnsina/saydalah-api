@@ -29,7 +29,7 @@ func NewService(repo Repository, salesSvc *sales.Service) *Service {
 
 // ListResult is a page of prescriptions plus the total count for a branch.
 type ListResult struct {
-	Items []store.Prescription
+	Items []Response
 	Total int64
 }
 
@@ -99,7 +99,7 @@ func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *u
 	if err != nil {
 		return ListResult{}, err
 	}
-	items, err := s.repo.List(ctx, store.ListPrescriptionsParams{
+	prescriptions, err := s.repo.List(ctx, store.ListPrescriptionsParams{
 		BranchID: branchID,
 		Limit:    p.Limit,
 		Offset:   p.Offset,
@@ -107,11 +107,19 @@ func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *u
 	if err != nil {
 		return ListResult{}, fmt.Errorf("prescription: list: %w", err)
 	}
+	responses := make([]Response, 0, len(prescriptions))
+	for _, presc := range prescriptions {
+		lineItems, err := s.repo.ListItems(ctx, presc.ID)
+		if err != nil {
+			return ListResult{}, fmt.Errorf("prescription: list items: %w", err)
+		}
+		responses = append(responses, toResponse(presc, lineItems))
+	}
 	total, err := s.repo.Count(ctx, branchID)
 	if err != nil {
 		return ListResult{}, fmt.Errorf("prescription: count: %w", err)
 	}
-	return ListResult{Items: items, Total: total}, nil
+	return ListResult{Items: responses, Total: total}, nil
 }
 
 // Dispense fills a prescription: it rings up a sale for the prescribed items
