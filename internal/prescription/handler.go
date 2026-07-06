@@ -61,7 +61,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, r, httpx.ErrUnauthorized)
 		return
 	}
-	res, err := h.svc.List(r.Context(), id, optionalBranch(r), httpx.ParsePagination(r))
+	res, err := h.svc.List(r.Context(), id, optionalBranch(r), optionalUUID(r, "customer_id"), httpx.ParsePagination(r))
 	if err != nil {
 		httpx.Error(w, r, err)
 		return
@@ -94,7 +94,11 @@ func (h *Handler) dispense(w http.ResponseWriter, r *http.Request) {
 }
 
 func optionalBranch(r *http.Request) *uuid.UUID {
-	raw := r.URL.Query().Get("branch_id")
+	return optionalUUID(r, "branch_id")
+}
+
+func optionalUUID(r *http.Request, key string) *uuid.UUID {
+	raw := r.URL.Query().Get(key)
 	if raw == "" {
 		return nil
 	}

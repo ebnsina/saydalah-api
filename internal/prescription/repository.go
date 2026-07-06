@@ -16,7 +16,7 @@ type Repository interface {
 	Get(ctx context.Context, id uuid.UUID) (store.Prescription, error)
 	ListItems(ctx context.Context, prescriptionID uuid.UUID) ([]store.PrescriptionItem, error)
 	List(ctx context.Context, arg store.ListPrescriptionsParams) ([]store.Prescription, error)
-	Count(ctx context.Context, branchID uuid.UUID) (int64, error)
+	Count(ctx context.Context, arg store.CountPrescriptionsParams) (int64, error)
 	MarkDispensed(ctx context.Context, id uuid.UUID) (store.Prescription, error)
 
 	Tx(ctx context.Context, fn func(Repository) error) error
@@ -58,8 +58,8 @@ func (r *storeRepository) List(ctx context.Context, arg store.ListPrescriptionsP
 	return r.q.ListPrescriptions(ctx, arg)
 }
 
-func (r *storeRepository) Count(ctx context.Context, branchID uuid.UUID) (int64, error) {
-	return r.q.CountPrescriptions(ctx, branchID)
+func (r *storeRepository) Count(ctx context.Context, arg store.CountPrescriptionsParams) (int64, error) {
+	return r.q.CountPrescriptions(ctx, arg)
 }
 
 func (r *storeRepository) MarkDispensed(ctx context.Context, id uuid.UUID) (store.Prescription, error) {

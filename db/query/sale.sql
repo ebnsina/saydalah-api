@@ -23,12 +23,15 @@ ORDER BY sb.expiry_date, si.id;
 
 -- name: ListSales :many
 SELECT * FROM sales
-WHERE branch_id = $1
+WHERE branch_id = sqlc.arg('branch_id')
+  AND (sqlc.narg('customer_id')::uuid IS NULL OR customer_id = sqlc.narg('customer_id'))
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: CountSales :one
-SELECT count(*) FROM sales WHERE branch_id = $1;
+SELECT count(*) FROM sales
+WHERE branch_id = sqlc.arg('branch_id')
+  AND (sqlc.narg('customer_id')::uuid IS NULL OR customer_id = sqlc.narg('customer_id'));
 
 -- Total units already returned to a given batch against a given sale. Used to
 -- cap sale-linked returns at the quantity actually dispensed.

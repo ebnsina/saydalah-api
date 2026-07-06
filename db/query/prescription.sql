@@ -16,12 +16,15 @@ SELECT * FROM prescription_items WHERE prescription_id = $1 ORDER BY id;
 
 -- name: ListPrescriptions :many
 SELECT * FROM prescriptions
-WHERE branch_id = $1
+WHERE branch_id = sqlc.arg('branch_id')
+  AND (sqlc.narg('customer_id')::uuid IS NULL OR customer_id = sqlc.narg('customer_id'))
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: CountPrescriptions :one
-SELECT count(*) FROM prescriptions WHERE branch_id = $1;
+SELECT count(*) FROM prescriptions
+WHERE branch_id = sqlc.arg('branch_id')
+  AND (sqlc.narg('customer_id')::uuid IS NULL OR customer_id = sqlc.narg('customer_id'));
 
 -- Mark a prescription dispensed once. The guard makes re-dispensing a no-op
 -- (0 rows), preventing a prescription from being filled twice.

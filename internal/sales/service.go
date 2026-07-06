@@ -254,21 +254,23 @@ func (s *Service) Void(ctx context.Context, id auth.Identity, saleID uuid.UUID) 
 	return toResponse(updated, items), nil
 }
 
-// List returns a page of sales for the caller's branch.
-func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *uuid.UUID, p httpx.Pagination) (ListResult, error) {
+// List returns a page of sales for the caller's branch, optionally filtered to
+// one customer.
+func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *uuid.UUID, customerID *uuid.UUID, p httpx.Pagination) (ListResult, error) {
 	branchID, err := id.ResolveBranch(requestedBranch)
 	if err != nil {
 		return ListResult{}, err
 	}
 	items, err := s.repo.ListSales(ctx, store.ListSalesParams{
-		BranchID: branchID,
-		Limit:    p.Limit,
-		Offset:   p.Offset,
+		BranchID:   branchID,
+		CustomerID: customerID,
+		Limit:      p.Limit,
+		Offset:     p.Offset,
 	})
 	if err != nil {
 		return ListResult{}, fmt.Errorf("sales: list: %w", err)
 	}
-	total, err := s.repo.CountSales(ctx, branchID)
+	total, err := s.repo.CountSales(ctx, store.CountSalesParams{BranchID: branchID, CustomerID: customerID})
 	if err != nil {
 		return ListResult{}, fmt.Errorf("sales: count: %w", err)
 	}

@@ -43,11 +43,18 @@ func (q *Queries) AddPrescriptionItem(ctx context.Context, arg AddPrescriptionIt
 }
 
 const countPrescriptions = `-- name: CountPrescriptions :one
-SELECT count(*) FROM prescriptions WHERE branch_id = $1
+SELECT count(*) FROM prescriptions
+WHERE branch_id = $1
+  AND ($2::uuid IS NULL OR customer_id = $2)
 `
 
-func (q *Queries) CountPrescriptions(ctx context.Context, branchID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countPrescriptions, branchID)
+type CountPrescriptionsParams struct {
+	BranchID   uuid.UUID  `json:"branch_id"`
+	CustomerID *uuid.UUID `json:"customer_id"`
+}
+
+func (q *Queries) CountPrescriptions(ctx context.Context, arg CountPrescriptionsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPrescriptions, arg.BranchID, arg.CustomerID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -138,18 +145,25 @@ func (q *Queries) ListPrescriptionItems(ctx context.Context, prescriptionID uuid
 const listPrescriptions = `-- name: ListPrescriptions :many
 SELECT id, customer_id, branch_id, doctor_name, notes, dispensed_at, created_at FROM prescriptions
 WHERE branch_id = $1
+  AND ($2::uuid IS NULL OR customer_id = $2)
 ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
+LIMIT $4 OFFSET $3
 `
 
 type ListPrescriptionsParams struct {
-	BranchID uuid.UUID `json:"branch_id"`
-	Limit    int32     `json:"limit"`
-	Offset   int32     `json:"offset"`
+	BranchID   uuid.UUID  `json:"branch_id"`
+	CustomerID *uuid.UUID `json:"customer_id"`
+	Offset     int32      `json:"offset"`
+	Limit      int32      `json:"limit"`
 }
 
 func (q *Queries) ListPrescriptions(ctx context.Context, arg ListPrescriptionsParams) ([]Prescription, error) {
-	rows, err := q.db.Query(ctx, listPrescriptions, arg.BranchID, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listPrescriptions,
+		arg.BranchID,
+		arg.CustomerID,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

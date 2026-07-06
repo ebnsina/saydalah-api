@@ -22,7 +22,7 @@ type Repository interface {
 	GetSale(ctx context.Context, id uuid.UUID) (store.Sale, error)
 	ListItems(ctx context.Context, saleID uuid.UUID) ([]store.SaleItem, error)
 	ListSales(ctx context.Context, arg store.ListSalesParams) ([]store.Sale, error)
-	CountSales(ctx context.Context, branchID uuid.UUID) (int64, error)
+	CountSales(ctx context.Context, arg store.CountSalesParams) (int64, error)
 
 	// Tx runs fn against a transaction-scoped Repository, committing on success.
 	Tx(ctx context.Context, fn func(Repository) error) error
@@ -88,6 +88,6 @@ func (r *storeRepository) ListSales(ctx context.Context, arg store.ListSalesPara
 	return r.q.ListSales(ctx, arg)
 }
 
-func (r *storeRepository) CountSales(ctx context.Context, branchID uuid.UUID) (int64, error) {
-	return r.q.CountSales(ctx, branchID)
+func (r *storeRepository) CountSales(ctx context.Context, arg store.CountSalesParams) (int64, error) {
+	return r.q.CountSales(ctx, arg)
 }

@@ -93,16 +93,18 @@ func (s *Service) Get(ctx context.Context, id auth.Identity, prescriptionID uuid
 	return toResponse(presc, items), nil
 }
 
-// List returns a page of prescriptions for the caller's branch.
-func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *uuid.UUID, p httpx.Pagination) (ListResult, error) {
+// List returns a page of prescriptions for the caller's branch, optionally
+// filtered to one customer.
+func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *uuid.UUID, customerID *uuid.UUID, p httpx.Pagination) (ListResult, error) {
 	branchID, err := id.ResolveBranch(requestedBranch)
 	if err != nil {
 		return ListResult{}, err
 	}
 	prescriptions, err := s.repo.List(ctx, store.ListPrescriptionsParams{
-		BranchID: branchID,
-		Limit:    p.Limit,
-		Offset:   p.Offset,
+		BranchID:   branchID,
+		CustomerID: customerID,
+		Limit:      p.Limit,
+		Offset:     p.Offset,
 	})
 	if err != nil {
 		return ListResult{}, fmt.Errorf("prescription: list: %w", err)
@@ -115,7 +117,7 @@ func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *u
 		}
 		responses = append(responses, toResponse(presc, lineItems))
 	}
-	total, err := s.repo.Count(ctx, branchID)
+	total, err := s.repo.Count(ctx, store.CountPrescriptionsParams{BranchID: branchID, CustomerID: customerID})
 	if err != nil {
 		return ListResult{}, fmt.Errorf("prescription: count: %w", err)
 	}

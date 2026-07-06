@@ -147,7 +147,9 @@ func (f *fakeRepo) ListSales(_ context.Context, _ store.ListSalesParams) ([]stor
 	return nil, nil
 }
 
-func (f *fakeRepo) CountSales(_ context.Context, _ uuid.UUID) (int64, error) { return 0, nil }
+func (f *fakeRepo) CountSales(_ context.Context, _ store.CountSalesParams) (int64, error) {
+	return 0, nil
+}
 
 // --- test fixtures -----------------------------------------------------------
 
