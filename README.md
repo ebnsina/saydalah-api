@@ -4,6 +4,28 @@ A modular Go backend for a **multi-branch pharmacy chain**, covering inventory &
 tracking, sales/POS, purchasing & suppliers, and prescriptions & customers. A SvelteKit frontend
 consumes it over a clean JSON REST boundary (`/api/v1`).
 
+## Features
+
+- **Multi-branch chain** — a shared product catalog with per-branch stock; every inventory, sales,
+  and purchasing query is branch-scoped, and admins can act across branches.
+- **Auth & RBAC** — JWT access tokens with **rotating refresh tokens** (reuse/theft detection),
+  bcrypt password hashing, role-based access (`admin`/`manager`/`pharmacist`/`cashier`), plus
+  self-service password change and admin password reset.
+- **Catalog & suppliers** — product master data (with barcode lookup for POS) and supplier records.
+- **Purchasing** — purchase orders and **goods receipt**, which creates expiry-dated stock batches.
+- **Inventory** — per-branch stock, batch/expiry tracking, and **near-expiry** & **low-stock**
+  (reorder) alerts.
+- **Sales / POS** — **FEFO** (first-expiry-first-out) checkout in a single transaction, invoices,
+  and **void** (refund + restore stock).
+- **Prescriptions & customers** — customer records and prescription **dispensing** (reuses FEFO).
+- **Manual stock operations** — adjustments, returns, **inter-branch transfers**, and physical
+  **stock-takes**.
+- **Audit ledger** — every stock change writes an append-only `stock_movements` row (type, qty,
+  reference, and the acting user) in the same transaction.
+- **Reporting** — sales summary, daily sales, inventory valuation, and top products.
+- **Operational** — fail-fast typed config, per-IP rate limiting (stricter on login), structured
+  request-scoped logging, graceful shutdown, and `/healthz` + `/readyz` probes.
+
 ## Stack
 
 | Concern | Choice |
