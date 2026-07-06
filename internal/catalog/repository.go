@@ -13,7 +13,7 @@ type Repository interface {
 	Create(ctx context.Context, arg store.CreateProductParams) (store.Product, error)
 	Get(ctx context.Context, id uuid.UUID) (store.Product, error)
 	GetByBarcode(ctx context.Context, code string) (store.Product, error)
-	List(ctx context.Context, arg store.ListProductsParams) ([]store.Product, error)
+	List(ctx context.Context, arg store.ListProductsParams) ([]store.ListProductsRow, error)
 	Count(ctx context.Context, arg store.CountProductsParams) (int64, error)
 	Categories(ctx context.Context) ([]string, error)
 	Update(ctx context.Context, arg store.UpdateProductParams) (store.Product, error)
@@ -36,7 +36,7 @@ func (r *storeRepository) GetByBarcode(ctx context.Context, code string) (store.
 	return r.q.GetProductByBarcode(ctx, &code)
 }
 
-func (r *storeRepository) List(ctx context.Context, arg store.ListProductsParams) ([]store.Product, error) {
+func (r *storeRepository) List(ctx context.Context, arg store.ListProductsParams) ([]store.ListProductsRow, error) {
 	return r.q.ListProducts(ctx, arg)
 }
 

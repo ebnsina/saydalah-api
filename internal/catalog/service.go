@@ -23,7 +23,7 @@ func NewService(repo Repository) *Service { return &Service{repo: repo} }
 
 // ListResult is a page of products plus the total count for that filter.
 type ListResult struct {
-	Items []store.Product
+	Items []Response
 	Total int64
 }
 
@@ -79,16 +79,19 @@ type Filter struct {
 	Search   *string
 	Category *string
 	Active   *bool
+	BranchID *uuid.UUID
 }
 
 // List returns a page of products matching the filter (search over name/generic/
-// barcode, plus optional category and active-status filters).
+// barcode, plus optional category and active-status filters). When BranchID is
+// set, each product carries its on-hand stock at that branch.
 func (s *Service) List(ctx context.Context, f Filter, p httpx.Pagination) (ListResult, error) {
 	search := cleanBarcode(f.Search) // reuse: trims and nils empty
-	items, err := s.repo.List(ctx, store.ListProductsParams{
+	rows, err := s.repo.List(ctx, store.ListProductsParams{
 		Search:   search,
 		Category: f.Category,
 		Active:   f.Active,
+		BranchID: f.BranchID,
 		Limit:    p.Limit,
 		Offset:   p.Offset,
 	})
@@ -102,6 +105,10 @@ func (s *Service) List(ctx context.Context, f Filter, p httpx.Pagination) (ListR
 	})
 	if err != nil {
 		return ListResult{}, fmt.Errorf("catalog: count: %w", err)
+	}
+	items := make([]Response, len(rows))
+	for i, r := range rows {
+		items[i] = listRowToResponse(r)
 	}
 	return ListResult{Items: items, Total: total}, nil
 }

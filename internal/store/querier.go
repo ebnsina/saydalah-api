@@ -76,7 +76,8 @@ type Querier interface {
 	// All in-stock batches of a product at a branch (detail view; not FEFO-locked).
 	ListProductBatches(ctx context.Context, arg ListProductBatchesParams) ([]StockBatch, error)
 	ListProductCategories(ctx context.Context) ([]string, error)
-	ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error)
+	// on_hand is the stock at the given branch (0 when branch_id is null).
+	ListProducts(ctx context.Context, arg ListProductsParams) ([]ListProductsRow, error)
 	ListPurchaseOrderItems(ctx context.Context, poID uuid.UUID) ([]PurchaseOrderItem, error)
 	ListPurchaseOrders(ctx context.Context, arg ListPurchaseOrdersParams) ([]PurchaseOrder, error)
 	// Ordered by the dispensed batch's expiry (FEFO / dispensing order), with id as

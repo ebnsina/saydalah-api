@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/ebnsina/saydalah-api/internal/httpx"
 )
@@ -90,16 +91,18 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 		v := false
 		filter.Active = &v
 	}
+	// branch_id scopes the on-hand stock reported per product (POS availability).
+	if raw := q.Get("branch_id"); raw != "" {
+		if id, err := uuid.Parse(raw); err == nil {
+			filter.BranchID = &id
+		}
+	}
 	res, err := h.svc.List(r.Context(), filter, httpx.ParsePagination(r))
 	if err != nil {
 		httpx.Error(w, r, err)
 		return
 	}
-	items := make([]Response, len(res.Items))
-	for i, p := range res.Items {
-		items[i] = toResponse(p)
-	}
-	httpx.JSON(w, http.StatusOK, httpx.NewPage(items, res.Total, r))
+	httpx.JSON(w, http.StatusOK, httpx.NewPage(res.Items, res.Total, r))
 }
 
 func (h *Handler) update(w http.ResponseWriter, r *http.Request) {

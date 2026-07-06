@@ -48,8 +48,28 @@ type Response struct {
 	Unit         string    `json:"unit"`
 	ReorderLevel int32     `json:"reorder_level"`
 	Active       bool      `json:"active"`
+	OnHand       int64     `json:"on_hand"` // stock at the queried branch (0 if none)
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// listRowToResponse maps a ListProducts row (which carries on_hand) to Response.
+func listRowToResponse(p store.ListProductsRow) Response {
+	return Response{
+		ID:           p.ID,
+		Name:         p.Name,
+		GenericName:  p.GenericName,
+		Form:         p.Form,
+		Strength:     p.Strength,
+		Barcode:      p.Barcode,
+		Category:     p.Category,
+		Unit:         p.Unit,
+		ReorderLevel: p.ReorderLevel,
+		Active:       p.Active,
+		OnHand:       p.OnHand,
+		CreatedAt:    p.CreatedAt,
+		UpdatedAt:    p.UpdatedAt,
+	}
 }
 
 func toResponse(p store.Product) Response {

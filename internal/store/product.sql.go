@@ -7,6 +7,7 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -156,29 +157,53 @@ func (q *Queries) ListProductCategories(ctx context.Context) ([]string, error) {
 }
 
 const listProducts = `-- name: ListProducts :many
-SELECT id, name, generic_name, form, strength, barcode, category, unit, reorder_level, active, created_at, updated_at FROM products
+SELECT p.id, p.name, p.generic_name, p.form, p.strength, p.barcode, p.category, p.unit, p.reorder_level, p.active, p.created_at, p.updated_at,
+    COALESCE((
+        SELECT SUM(sb.quantity) FROM stock_batches sb
+        WHERE sb.product_id = p.id AND sb.branch_id = $1
+    ), 0)::bigint AS on_hand
+FROM products p
 WHERE (
-    $1::text IS NULL
-    OR name ILIKE '%' || $1 || '%'
-    OR generic_name ILIKE '%' || $1 || '%'
-    OR barcode = $1
+    $2::text IS NULL
+    OR p.name ILIKE '%' || $2 || '%'
+    OR p.generic_name ILIKE '%' || $2 || '%'
+    OR p.barcode = $2
 )
-  AND ($2::text IS NULL OR category = $2)
-  AND ($3::boolean IS NULL OR active = $3)
-ORDER BY name
-LIMIT $5 OFFSET $4
+  AND ($3::text IS NULL OR p.category = $3)
+  AND ($4::boolean IS NULL OR p.active = $4)
+ORDER BY p.name
+LIMIT $6 OFFSET $5
 `
 
 type ListProductsParams struct {
-	Search   *string `json:"search"`
-	Category *string `json:"category"`
-	Active   *bool   `json:"active"`
-	Offset   int32   `json:"offset"`
-	Limit    int32   `json:"limit"`
+	BranchID *uuid.UUID `json:"branch_id"`
+	Search   *string    `json:"search"`
+	Category *string    `json:"category"`
+	Active   *bool      `json:"active"`
+	Offset   int32      `json:"offset"`
+	Limit    int32      `json:"limit"`
 }
 
-func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]Product, error) {
+type ListProductsRow struct {
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	GenericName  string    `json:"generic_name"`
+	Form         string    `json:"form"`
+	Strength     string    `json:"strength"`
+	Barcode      *string   `json:"barcode"`
+	Category     string    `json:"category"`
+	Unit         string    `json:"unit"`
+	ReorderLevel int32     `json:"reorder_level"`
+	Active       bool      `json:"active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	OnHand       int64     `json:"on_hand"`
+}
+
+// on_hand is the stock at the given branch (0 when branch_id is null).
+func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]ListProductsRow, error) {
 	rows, err := q.db.Query(ctx, listProducts,
+		arg.BranchID,
 		arg.Search,
 		arg.Category,
 		arg.Active,
@@ -189,9 +214,9 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Product{}
+	items := []ListProductsRow{}
 	for rows.Next() {
-		var i Product
+		var i ListProductsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -205,6 +230,7 @@ func (q *Queries) ListProducts(ctx context.Context, arg ListProductsParams) ([]P
 			&i.Active,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OnHand,
 		); err != nil {
 			return nil, err
 		}

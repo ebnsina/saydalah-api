@@ -8,16 +8,22 @@ RETURNING *;
 SELECT * FROM products WHERE id = $1;
 
 -- name: ListProducts :many
-SELECT * FROM products
+-- on_hand is the stock at the given branch (0 when branch_id is null).
+SELECT p.*,
+    COALESCE((
+        SELECT SUM(sb.quantity) FROM stock_batches sb
+        WHERE sb.product_id = p.id AND sb.branch_id = sqlc.narg('branch_id')
+    ), 0)::bigint AS on_hand
+FROM products p
 WHERE (
     sqlc.narg('search')::text IS NULL
-    OR name ILIKE '%' || sqlc.narg('search') || '%'
-    OR generic_name ILIKE '%' || sqlc.narg('search') || '%'
-    OR barcode = sqlc.narg('search')
+    OR p.name ILIKE '%' || sqlc.narg('search') || '%'
+    OR p.generic_name ILIKE '%' || sqlc.narg('search') || '%'
+    OR p.barcode = sqlc.narg('search')
 )
-  AND (sqlc.narg('category')::text IS NULL OR category = sqlc.narg('category'))
-  AND (sqlc.narg('active')::boolean IS NULL OR active = sqlc.narg('active'))
-ORDER BY name
+  AND (sqlc.narg('category')::text IS NULL OR p.category = sqlc.narg('category'))
+  AND (sqlc.narg('active')::boolean IS NULL OR p.active = sqlc.narg('active'))
+ORDER BY p.name
 LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
 
 -- name: CountProducts :one
