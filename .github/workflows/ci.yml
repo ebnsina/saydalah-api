@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: saydalah
+          POSTGRES_PASSWORD: saydalah
+          POSTGRES_DB: saydalah
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U saydalah"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://saydalah:saydalah@localhost:5432/saydalah?sslmode=disable
+      JWT_SECRET: ci-test-secret
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+
+      - name: Verify sqlc is up to date
+        run: |
+          go run github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate
+          git diff --exit-code -- internal/store || \
+            (echo "internal/store is stale — run 'make sqlc' and commit" && exit 1)
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./... -race -count=1
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest

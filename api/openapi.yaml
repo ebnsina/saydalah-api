@@ -1,0 +1,374 @@
+openapi: 3.1.0
+info:
+  title: Saydalah Pharmacy Management API
+  version: 0.1.0
+  description: >
+    Backend API for a multi-branch pharmacy chain: inventory & batch/expiry
+    tracking, sales/POS (FEFO dispensing), purchasing, and prescriptions.
+    All endpoints except /auth/login require a Bearer JWT.
+servers:
+  - url: http://localhost:8080/api/v1
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+  - name: branches
+  - name: users
+  - name: products
+  - name: suppliers
+  - name: purchasing
+  - name: inventory
+  - name: sales
+  - name: customers
+  - name: prescriptions
+  - name: reports
+
+paths:
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Exchange credentials for an access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: Token issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  expires_at: { type: string, format: date-time }
+                  user: { $ref: "#/components/schemas/UserInfo" }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Current authenticated user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserInfo" }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /branches:
+    get:
+      tags: [branches]
+      summary: List branches
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [branches]
+      summary: Create a branch (manager/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                address: { type: string }
+                phone: { type: string }
+      responses:
+        "201": { description: Created }
+        "403": { $ref: "#/components/responses/Error" }
+
+  /branches/{id}:
+    get:
+      tags: [branches]
+      summary: Get a branch
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200": { description: OK }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [branches]
+      summary: Update a branch (manager/admin)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      responses:
+        "200": { description: OK }
+
+  /users:
+    get:
+      tags: [users]
+      summary: List staff users (manager/admin)
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [users]
+      summary: Create a staff user (manager/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, role]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                full_name: { type: string }
+                role: { $ref: "#/components/schemas/Role" }
+                branch_id: { type: string, format: uuid, nullable: true }
+      responses:
+        "201": { description: Created }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /products:
+    get:
+      tags: [products]
+      summary: List/search products
+      parameters:
+        - { name: search, in: query, schema: { type: string } }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200": { description: OK }
+    post:
+      tags: [products]
+      summary: Add a product (manager/admin)
+      responses:
+        "201": { description: Created }
+
+  /suppliers:
+    get: { tags: [suppliers], summary: List suppliers, responses: { "200": { description: OK } } }
+    post: { tags: [suppliers], summary: Add a supplier (manager/admin), responses: { "201": { description: Created } } }
+
+  /purchase-orders:
+    get:
+      tags: [purchasing]
+      summary: List purchase orders (branch-scoped)
+      parameters: [{ $ref: "#/components/parameters/BranchId" }]
+      responses: { "200": { description: OK } }
+    post:
+      tags: [purchasing]
+      summary: Place a purchase order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [supplier_id, items]
+              properties:
+                branch_id: { type: string, format: uuid, nullable: true }
+                supplier_id: { type: string, format: uuid }
+                reference: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, qty]
+                    properties:
+                      product_id: { type: string, format: uuid }
+                      qty: { type: integer, minimum: 1 }
+                      unit_cost: { type: string, description: decimal }
+      responses: { "201": { description: Created } }
+
+  /purchase-orders/{id}/receive:
+    post:
+      tags: [purchasing]
+      summary: Receive goods against an order (creates stock batches)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lines]
+              properties:
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, quantity, expiry_date]
+                    properties:
+                      product_id: { type: string, format: uuid }
+                      batch_no: { type: string }
+                      quantity: { type: integer, minimum: 1 }
+                      cost_price: { type: string }
+                      sale_price: { type: string }
+                      expiry_date: { type: string, format: date-time }
+      responses:
+        "200": { description: Received }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /inventory/batches:
+    get: { tags: [inventory], summary: In-stock batches (earliest expiry first), parameters: [{ $ref: "#/components/parameters/BranchId" }], responses: { "200": { description: OK } } }
+  /inventory/near-expiry:
+    get:
+      tags: [inventory]
+      summary: Batches expiring within N days
+      parameters:
+        - $ref: "#/components/parameters/BranchId"
+        - { name: within_days, in: query, schema: { type: integer, default: 30 } }
+      responses: { "200": { description: OK } }
+  /inventory/low-stock:
+    get: { tags: [inventory], summary: Products at/below reorder level, parameters: [{ $ref: "#/components/parameters/BranchId" }], responses: { "200": { description: OK } } }
+  /inventory/on-hand/{productID}:
+    get:
+      tags: [inventory]
+      summary: On-hand quantity for a product
+      parameters:
+        - { name: productID, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: "#/components/parameters/BranchId"
+      responses: { "200": { description: OK } }
+
+  /sales:
+    get: { tags: [sales], summary: List sales (branch-scoped), responses: { "200": { description: OK } } }
+    post:
+      tags: [sales]
+      summary: Ring up a sale (FEFO dispensing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_method, lines]
+              properties:
+                branch_id: { type: string, format: uuid, nullable: true }
+                customer_id: { type: string, format: uuid, nullable: true }
+                prescription_id: { type: string, format: uuid, nullable: true }
+                payment_method: { type: string, enum: [cash, card, mobile] }
+                discount: { type: string }
+                paid: { type: string }
+                lines:
+                  type: array
+                  items:
+                    type: object
+                    required: [product_id, qty]
+                    properties:
+                      product_id: { type: string, format: uuid }
+                      qty: { type: integer, minimum: 1 }
+      responses:
+        "201": { description: Sale completed }
+        "409": { description: Insufficient stock, $ref: "#/components/responses/Error" }
+
+  /customers:
+    get: { tags: [customers], summary: List/search customers, responses: { "200": { description: OK } } }
+    post: { tags: [customers], summary: Add a customer, responses: { "201": { description: Created } } }
+
+  /prescriptions:
+    get: { tags: [prescriptions], summary: List prescriptions (branch-scoped), responses: { "200": { description: OK } } }
+    post: { tags: [prescriptions], summary: Record a prescription (pharmacist/manager), responses: { "201": { description: Created } } }
+  /prescriptions/{id}/dispense:
+    post:
+      tags: [prescriptions]
+      summary: Dispense a prescription (FEFO sale + mark dispensed)
+      parameters: [{ $ref: "#/components/parameters/ID" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_method]
+              properties:
+                payment_method: { type: string, enum: [cash, card, mobile] }
+                discount: { type: string }
+                paid: { type: string }
+      responses:
+        "201": { description: Dispensed (returns the sale) }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /reports/sales-summary:
+    get:
+      tags: [reports]
+      summary: Sales totals over a date range (manager/admin)
+      parameters:
+        - $ref: "#/components/parameters/BranchId"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+      responses: { "200": { description: OK } }
+  /reports/sales-daily:
+    get: { tags: [reports], summary: Per-day sales trend, responses: { "200": { description: OK } } }
+  /reports/inventory-valuation:
+    get: { tags: [reports], summary: Stock valued at cost and retail, responses: { "200": { description: OK } } }
+  /reports/top-products:
+    get: { tags: [reports], summary: Best-selling products, responses: { "200": { description: OK } } }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    BranchId:
+      name: branch_id
+      in: query
+      description: Required for admins; ignored for branch-scoped staff.
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, default: 1, minimum: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, default: 20, maximum: 100 }
+    From:
+      name: from
+      in: query
+      schema: { type: string, format: date }
+    To:
+      name: to
+      in: query
+      schema: { type: string, format: date }
+
+  responses:
+    Error:
+      description: Error envelope
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  message: { type: string }
+                  details:
+                    type: object
+                    additionalProperties: { type: string }
+
+  schemas:
+    Role:
+      type: string
+      enum: [admin, manager, pharmacist, cashier]
+    UserInfo:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        full_name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        branch_id: { type: string, format: uuid, nullable: true }

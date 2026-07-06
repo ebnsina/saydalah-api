@@ -67,3 +67,25 @@ curl localhost:8080/readyz    # {"status":"ready"} once the DB is reachable
 
 All config comes from the environment (see `.env.example`): `DATABASE_URL` and `JWT_SECRET` are
 required; `APP_ENV`, `HTTP_ADDR`, `JWT_TTL`, `CORS_ORIGINS`, `SHUTDOWN_TIMEOUT` have defaults.
+Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` to bootstrap the first admin on an empty database.
+
+## Modules & endpoints
+
+Mounted under `/api/v1`, all behind a JWT except `POST /auth/login`:
+
+- `auth` — `POST /auth/login`, `GET /auth/me`
+- `branches`, `users` — chain administration (manager/admin)
+- `products`, `suppliers` — master catalog (read: all staff; write: manager/admin)
+- `purchase-orders` — ordering + `POST /{id}/receive` (creates stock batches)
+- `inventory` — `batches`, `near-expiry`, `low-stock`, `on-hand/{productID}`
+- `sales` — `POST /sales` FEFO checkout, list/get
+- `customers`, `prescriptions` — `POST /prescriptions/{id}/dispense` reuses FEFO
+- `reports` — `sales-summary`, `sales-daily`, `inventory-valuation`, `top-products` (manager/admin)
+
+The full contract is in [`api/openapi.yaml`](api/openapi.yaml).
+
+## Quality
+
+`make test` runs unit tests (FEFO dispensing, auth/JWT, tenant isolation, pagination). CI
+(`.github/workflows/ci.yml`) builds, vets, checks that `internal/store` is regenerated, runs tests
+against a real Postgres service, and lints with golangci-lint (`.golangci.yml`).
