@@ -39,7 +39,7 @@ WHERE branch_id = $1 AND product_id = $2;
 -- Inventory read queries (per-branch stock, expiry & reorder alerts) ----------
 
 -- name: ListBranchBatches :many
-SELECT sb.*, p.name AS product_name
+SELECT sb.*, p.name AS product_name, p.form AS product_form
 FROM stock_batches sb
 JOIN products p ON p.id = sb.product_id
 WHERE sb.branch_id = $1 AND sb.quantity > 0
@@ -51,7 +51,7 @@ SELECT count(*) FROM stock_batches
 WHERE branch_id = $1 AND quantity > 0;
 
 -- name: ListNearExpiryBatches :many
-SELECT sb.*, p.name AS product_name
+SELECT sb.*, p.name AS product_name, p.form AS product_form
 FROM stock_batches sb
 JOIN products p ON p.id = sb.product_id
 WHERE sb.branch_id = $1
@@ -60,7 +60,7 @@ WHERE sb.branch_id = $1
 ORDER BY sb.expiry_date ASC;
 
 -- name: ListLowStock :many
-SELECT p.id AS product_id, p.name AS product_name, p.reorder_level,
+SELECT p.id AS product_id, p.name AS product_name, p.form AS product_form, p.reorder_level,
        COALESCE(SUM(sb.quantity), 0)::bigint AS on_hand
 FROM products p
 LEFT JOIN stock_batches sb

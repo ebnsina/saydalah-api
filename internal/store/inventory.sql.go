@@ -175,7 +175,7 @@ func (q *Queries) GetStockBatch(ctx context.Context, id uuid.UUID) (StockBatch, 
 
 const listBranchBatches = `-- name: ListBranchBatches :many
 
-SELECT sb.id, sb.product_id, sb.branch_id, sb.batch_no, sb.quantity, sb.cost_price, sb.sale_price, sb.expiry_date, sb.received_at, p.name AS product_name
+SELECT sb.id, sb.product_id, sb.branch_id, sb.batch_no, sb.quantity, sb.cost_price, sb.sale_price, sb.expiry_date, sb.received_at, p.name AS product_name, p.form AS product_form
 FROM stock_batches sb
 JOIN products p ON p.id = sb.product_id
 WHERE sb.branch_id = $1 AND sb.quantity > 0
@@ -200,6 +200,7 @@ type ListBranchBatchesRow struct {
 	ExpiryDate  time.Time       `json:"expiry_date"`
 	ReceivedAt  time.Time       `json:"received_at"`
 	ProductName string          `json:"product_name"`
+	ProductForm string          `json:"product_form"`
 }
 
 // Inventory read queries (per-branch stock, expiry & reorder alerts) ----------
@@ -223,6 +224,7 @@ func (q *Queries) ListBranchBatches(ctx context.Context, arg ListBranchBatchesPa
 			&i.ExpiryDate,
 			&i.ReceivedAt,
 			&i.ProductName,
+			&i.ProductForm,
 		); err != nil {
 			return nil, err
 		}
@@ -281,7 +283,7 @@ func (q *Queries) ListDispensableBatches(ctx context.Context, arg ListDispensabl
 }
 
 const listLowStock = `-- name: ListLowStock :many
-SELECT p.id AS product_id, p.name AS product_name, p.reorder_level,
+SELECT p.id AS product_id, p.name AS product_name, p.form AS product_form, p.reorder_level,
        COALESCE(SUM(sb.quantity), 0)::bigint AS on_hand
 FROM products p
 LEFT JOIN stock_batches sb
@@ -295,6 +297,7 @@ ORDER BY on_hand ASC
 type ListLowStockRow struct {
 	ProductID    uuid.UUID `json:"product_id"`
 	ProductName  string    `json:"product_name"`
+	ProductForm  string    `json:"product_form"`
 	ReorderLevel int32     `json:"reorder_level"`
 	OnHand       int64     `json:"on_hand"`
 }
@@ -311,6 +314,7 @@ func (q *Queries) ListLowStock(ctx context.Context, branchID uuid.UUID) ([]ListL
 		if err := rows.Scan(
 			&i.ProductID,
 			&i.ProductName,
+			&i.ProductForm,
 			&i.ReorderLevel,
 			&i.OnHand,
 		); err != nil {
@@ -325,7 +329,7 @@ func (q *Queries) ListLowStock(ctx context.Context, branchID uuid.UUID) ([]ListL
 }
 
 const listNearExpiryBatches = `-- name: ListNearExpiryBatches :many
-SELECT sb.id, sb.product_id, sb.branch_id, sb.batch_no, sb.quantity, sb.cost_price, sb.sale_price, sb.expiry_date, sb.received_at, p.name AS product_name
+SELECT sb.id, sb.product_id, sb.branch_id, sb.batch_no, sb.quantity, sb.cost_price, sb.sale_price, sb.expiry_date, sb.received_at, p.name AS product_name, p.form AS product_form
 FROM stock_batches sb
 JOIN products p ON p.id = sb.product_id
 WHERE sb.branch_id = $1
@@ -350,6 +354,7 @@ type ListNearExpiryBatchesRow struct {
 	ExpiryDate  time.Time       `json:"expiry_date"`
 	ReceivedAt  time.Time       `json:"received_at"`
 	ProductName string          `json:"product_name"`
+	ProductForm string          `json:"product_form"`
 }
 
 func (q *Queries) ListNearExpiryBatches(ctx context.Context, arg ListNearExpiryBatchesParams) ([]ListNearExpiryBatchesRow, error) {
@@ -372,6 +377,7 @@ func (q *Queries) ListNearExpiryBatches(ctx context.Context, arg ListNearExpiryB
 			&i.ExpiryDate,
 			&i.ReceivedAt,
 			&i.ProductName,
+			&i.ProductForm,
 		); err != nil {
 			return nil, err
 		}

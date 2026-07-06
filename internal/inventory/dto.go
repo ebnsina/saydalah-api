@@ -17,6 +17,7 @@ type BatchResponse struct {
 	ID          uuid.UUID       `json:"id"`
 	ProductID   uuid.UUID       `json:"product_id"`
 	ProductName string          `json:"product_name"`
+	ProductForm string          `json:"product_form"`
 	BatchNo     string          `json:"batch_no"`
 	Quantity    int32           `json:"quantity"`
 	SalePrice   decimal.Decimal `json:"sale_price"`
@@ -27,6 +28,7 @@ type BatchResponse struct {
 type LowStockResponse struct {
 	ProductID    uuid.UUID `json:"product_id"`
 	ProductName  string    `json:"product_name"`
+	ProductForm  string    `json:"product_form"`
 	ReorderLevel int32     `json:"reorder_level"`
 	OnHand       int64     `json:"on_hand"`
 }
@@ -43,6 +45,7 @@ func batchFromBranchRow(r store.ListBranchBatchesRow) BatchResponse {
 		ID:          r.ID,
 		ProductID:   r.ProductID,
 		ProductName: r.ProductName,
+		ProductForm: r.ProductForm,
 		BatchNo:     r.BatchNo,
 		Quantity:    r.Quantity,
 		SalePrice:   r.SalePrice,
@@ -55,6 +58,7 @@ func batchFromExpiryRow(r store.ListNearExpiryBatchesRow) BatchResponse {
 		ID:          r.ID,
 		ProductID:   r.ProductID,
 		ProductName: r.ProductName,
+		ProductForm: r.ProductForm,
 		BatchNo:     r.BatchNo,
 		Quantity:    r.Quantity,
 		SalePrice:   r.SalePrice,
@@ -66,6 +70,7 @@ func lowStockFromRow(r store.ListLowStockRow) LowStockResponse {
 	return LowStockResponse{
 		ProductID:    r.ProductID,
 		ProductName:  r.ProductName,
+		ProductForm:  r.ProductForm,
 		ReorderLevel: r.ReorderLevel,
 		OnHand:       r.OnHand,
 	}
