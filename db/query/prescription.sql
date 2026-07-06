@@ -14,6 +14,12 @@ SELECT * FROM prescriptions WHERE id = $1;
 -- name: ListPrescriptionItems :many
 SELECT * FROM prescription_items WHERE prescription_id = $1 ORDER BY id;
 
+-- name: ListPrescriptionItemsForPrescriptions :many
+-- Batch item-load for a page of prescriptions (avoids an N+1 in the list).
+SELECT * FROM prescription_items
+WHERE prescription_id = ANY(@ids::uuid[])
+ORDER BY prescription_id, id;
+
 -- name: ListPrescriptions :many
 SELECT * FROM prescriptions
 WHERE branch_id = sqlc.arg('branch_id')

@@ -17,6 +17,7 @@ type Repository interface {
 	AddItem(ctx context.Context, arg store.AddPurchaseOrderItemParams) (store.PurchaseOrderItem, error)
 	GetOrder(ctx context.Context, id uuid.UUID) (store.PurchaseOrder, error)
 	ListItems(ctx context.Context, poID uuid.UUID) ([]store.PurchaseOrderItem, error)
+	ListItemsForOrders(ctx context.Context, poIDs []uuid.UUID) ([]store.PurchaseOrderItem, error)
 	ListOrders(ctx context.Context, arg store.ListPurchaseOrdersParams) ([]store.PurchaseOrder, error)
 	CountOrders(ctx context.Context, branchID uuid.UUID) (int64, error)
 	MarkReceived(ctx context.Context, id uuid.UUID) (store.PurchaseOrder, error)
@@ -55,6 +56,10 @@ func (r *storeRepository) AddItem(ctx context.Context, arg store.AddPurchaseOrde
 
 func (r *storeRepository) GetOrder(ctx context.Context, id uuid.UUID) (store.PurchaseOrder, error) {
 	return r.q.GetPurchaseOrder(ctx, id)
+}
+
+func (r *storeRepository) ListItemsForOrders(ctx context.Context, poIDs []uuid.UUID) ([]store.PurchaseOrderItem, error) {
+	return r.q.ListPurchaseOrderItemsForOrders(ctx, poIDs)
 }
 
 func (r *storeRepository) ListItems(ctx context.Context, poID uuid.UUID) ([]store.PurchaseOrderItem, error) {

@@ -142,6 +142,39 @@ func (q *Queries) ListPrescriptionItems(ctx context.Context, prescriptionID uuid
 	return items, nil
 }
 
+const listPrescriptionItemsForPrescriptions = `-- name: ListPrescriptionItemsForPrescriptions :many
+SELECT id, prescription_id, product_id, qty, dosage FROM prescription_items
+WHERE prescription_id = ANY($1::uuid[])
+ORDER BY prescription_id, id
+`
+
+// Batch item-load for a page of prescriptions (avoids an N+1 in the list).
+func (q *Queries) ListPrescriptionItemsForPrescriptions(ctx context.Context, ids []uuid.UUID) ([]PrescriptionItem, error) {
+	rows, err := q.db.Query(ctx, listPrescriptionItemsForPrescriptions, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PrescriptionItem{}
+	for rows.Next() {
+		var i PrescriptionItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.PrescriptionID,
+			&i.ProductID,
+			&i.Qty,
+			&i.Dosage,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPrescriptions = `-- name: ListPrescriptions :many
 SELECT id, customer_id, branch_id, doctor_name, notes, dispensed_at, created_at FROM prescriptions
 WHERE branch_id = $1

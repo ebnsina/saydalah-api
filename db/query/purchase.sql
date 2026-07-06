@@ -14,6 +14,12 @@ SELECT * FROM purchase_orders WHERE id = $1;
 -- name: ListPurchaseOrderItems :many
 SELECT * FROM purchase_order_items WHERE po_id = $1 ORDER BY id;
 
+-- name: ListPurchaseOrderItemsForOrders :many
+-- Batch item-load for a page of orders (avoids an N+1 in the list endpoint).
+SELECT * FROM purchase_order_items
+WHERE po_id = ANY(@po_ids::uuid[])
+ORDER BY po_id, id;
+
 -- name: ListPurchaseOrders :many
 SELECT * FROM purchase_orders
 WHERE branch_id = $1

@@ -134,6 +134,39 @@ func (q *Queries) ListPurchaseOrderItems(ctx context.Context, poID uuid.UUID) ([
 	return items, nil
 }
 
+const listPurchaseOrderItemsForOrders = `-- name: ListPurchaseOrderItemsForOrders :many
+SELECT id, po_id, product_id, qty, unit_cost FROM purchase_order_items
+WHERE po_id = ANY($1::uuid[])
+ORDER BY po_id, id
+`
+
+// Batch item-load for a page of orders (avoids an N+1 in the list endpoint).
+func (q *Queries) ListPurchaseOrderItemsForOrders(ctx context.Context, poIds []uuid.UUID) ([]PurchaseOrderItem, error) {
+	rows, err := q.db.Query(ctx, listPurchaseOrderItemsForOrders, poIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PurchaseOrderItem{}
+	for rows.Next() {
+		var i PurchaseOrderItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.PoID,
+			&i.ProductID,
+			&i.Qty,
+			&i.UnitCost,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPurchaseOrders = `-- name: ListPurchaseOrders :many
 SELECT id, branch_id, supplier_id, status, reference, ordered_at, received_at, created_at, updated_at FROM purchase_orders
 WHERE branch_id = $1

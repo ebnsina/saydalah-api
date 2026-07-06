@@ -109,13 +109,22 @@ func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *u
 	if err != nil {
 		return ListResult{}, fmt.Errorf("prescription: list: %w", err)
 	}
+	// Batch-load all items for the page in one query (avoids N+1), then group.
+	ids := make([]uuid.UUID, len(prescriptions))
+	for i, presc := range prescriptions {
+		ids[i] = presc.ID
+	}
+	allItems, err := s.repo.ListItemsForPrescriptions(ctx, ids)
+	if err != nil {
+		return ListResult{}, fmt.Errorf("prescription: list items: %w", err)
+	}
+	byRx := make(map[uuid.UUID][]store.PrescriptionItem, len(prescriptions))
+	for _, it := range allItems {
+		byRx[it.PrescriptionID] = append(byRx[it.PrescriptionID], it)
+	}
 	responses := make([]Response, 0, len(prescriptions))
 	for _, presc := range prescriptions {
-		lineItems, err := s.repo.ListItems(ctx, presc.ID)
-		if err != nil {
-			return ListResult{}, fmt.Errorf("prescription: list items: %w", err)
-		}
-		responses = append(responses, toResponse(presc, lineItems))
+		responses = append(responses, toResponse(presc, byRx[presc.ID]))
 	}
 	total, err := s.repo.Count(ctx, store.CountPrescriptionsParams{BranchID: branchID, CustomerID: customerID})
 	if err != nil {

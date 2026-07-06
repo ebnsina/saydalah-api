@@ -51,7 +51,8 @@ func (h *Handler) categories(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, r, err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": cats})
+	// Categories rarely change; let clients cache for 5 minutes (with ETag).
+	httpx.JSONCached(w, r, 300, map[string]any{"items": cats})
 }
 
 // optionalStr returns a pointer to v, or nil when v is empty.

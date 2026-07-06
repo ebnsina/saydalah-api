@@ -45,8 +45,8 @@ func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager,
 
 		// Client-facing runtime settings (e.g. the tax rate) so the POS can
 		// preview totals; the API remains the source of truth at checkout.
-		r.Get("/meta", func(w http.ResponseWriter, _ *http.Request) {
-			httpx.JSON(w, http.StatusOK, map[string]any{"tax_rate": cfg.TaxRate})
+		r.Get("/meta", func(w http.ResponseWriter, req *http.Request) {
+			httpx.JSONCached(w, req, 300, map[string]any{"tax_rate": cfg.TaxRate})
 		})
 
 		authMod.MountProtected(r)

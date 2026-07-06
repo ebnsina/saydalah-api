@@ -72,6 +72,8 @@ type Querier interface {
 	ListLowStock(ctx context.Context, branchID uuid.UUID) ([]ListLowStockRow, error)
 	ListNearExpiryBatches(ctx context.Context, arg ListNearExpiryBatchesParams) ([]ListNearExpiryBatchesRow, error)
 	ListPrescriptionItems(ctx context.Context, prescriptionID uuid.UUID) ([]PrescriptionItem, error)
+	// Batch item-load for a page of prescriptions (avoids an N+1 in the list).
+	ListPrescriptionItemsForPrescriptions(ctx context.Context, ids []uuid.UUID) ([]PrescriptionItem, error)
 	ListPrescriptions(ctx context.Context, arg ListPrescriptionsParams) ([]Prescription, error)
 	// All in-stock batches of a product at a branch (detail view; not FEFO-locked).
 	ListProductBatches(ctx context.Context, arg ListProductBatchesParams) ([]StockBatch, error)
@@ -79,6 +81,8 @@ type Querier interface {
 	// on_hand is the stock at the given branch (0 when branch_id is null).
 	ListProducts(ctx context.Context, arg ListProductsParams) ([]ListProductsRow, error)
 	ListPurchaseOrderItems(ctx context.Context, poID uuid.UUID) ([]PurchaseOrderItem, error)
+	// Batch item-load for a page of orders (avoids an N+1 in the list endpoint).
+	ListPurchaseOrderItemsForOrders(ctx context.Context, poIds []uuid.UUID) ([]PurchaseOrderItem, error)
 	ListPurchaseOrders(ctx context.Context, arg ListPurchaseOrdersParams) ([]PurchaseOrder, error)
 	// Ordered by the dispensed batch's expiry (FEFO / dispensing order), with id as
 	// a stable tie-breaker, so receipt line items appear deterministically.

@@ -1,10 +1,13 @@
 package httpx
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 )
 
 // envelope is the stable JSON error shape returned to clients:
@@ -28,6 +31,32 @@ func JSON(w http.ResponseWriter, status int, v any) {
 	}
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		slog.Error("httpx: failed to encode response", "error", err)
+	}
+}
+
+// JSONCached writes a 200 with Cache-Control and a content ETag, and returns
+// 304 Not Modified when the client's If-None-Match matches (saving bandwidth on
+// unchanged reads). maxAge is the client freshness window in seconds; use it for
+// rarely-changing reads (e.g. tax settings, product categories, catalog pages).
+func JSONCached(w http.ResponseWriter, r *http.Request, maxAge int, v any) {
+	body, err := json.Marshal(v)
+	if err != nil {
+		slog.Error("httpx: failed to marshal cached response", "error", err)
+		Error(w, r, err)
+		return
+	}
+	sum := sha256.Sum256(body)
+	etag := `"` + hex.EncodeToString(sum[:16]) + `"`
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "private, max-age="+strconv.Itoa(maxAge))
+	w.Header().Set("ETag", etag)
+	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(body); err != nil {
+		slog.Error("httpx: failed to write cached response", "error", err)
 	}
 }
 

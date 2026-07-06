@@ -112,13 +112,23 @@ func (s *Service) List(ctx context.Context, id auth.Identity, requestedBranch *u
 	if err != nil {
 		return ListResult{}, fmt.Errorf("purchasing: list: %w", err)
 	}
+	// Batch-load all line items for the page in a single query (avoids N+1),
+	// then group them by order.
+	ids := make([]uuid.UUID, len(orders))
+	for i, po := range orders {
+		ids[i] = po.ID
+	}
+	allItems, err := s.repo.ListItemsForOrders(ctx, ids)
+	if err != nil {
+		return ListResult{}, fmt.Errorf("purchasing: list items: %w", err)
+	}
+	byOrder := make(map[uuid.UUID][]store.PurchaseOrderItem, len(orders))
+	for _, it := range allItems {
+		byOrder[it.PoID] = append(byOrder[it.PoID], it)
+	}
 	responses := make([]OrderResponse, 0, len(orders))
 	for _, po := range orders {
-		lineItems, err := s.repo.ListItems(ctx, po.ID)
-		if err != nil {
-			return ListResult{}, fmt.Errorf("purchasing: list items: %w", err)
-		}
-		responses = append(responses, toResponse(po, lineItems))
+		responses = append(responses, toResponse(po, byOrder[po.ID]))
 	}
 	total, err := s.repo.CountOrders(ctx, branchID)
 	if err != nil {
