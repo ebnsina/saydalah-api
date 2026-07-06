@@ -8,7 +8,7 @@ import (
 
 func TestRateLimitAllowsBurstThenBlocks(t *testing.T) {
 	// 0 rps, burst 2: two requests allowed, the third is limited.
-	h := RateLimit(0.0001, 2)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := RateLimit(nil, "test", 0.0001, 2)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -32,7 +32,7 @@ func TestRateLimitAllowsBurstThenBlocks(t *testing.T) {
 }
 
 func TestRateLimitIsPerClient(t *testing.T) {
-	h := RateLimit(0.0001, 1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := RateLimit(nil, "test", 0.0001, 1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

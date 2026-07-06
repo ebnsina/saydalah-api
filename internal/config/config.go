@@ -21,6 +21,7 @@ type Config struct {
 	Env             string        // "development" | "production"
 	HTTPAddr        string        // e.g. ":8080"
 	DatabaseURL     string        // postgres connection string
+	RedisURL        string        // optional; enables shared rate-limit + report cache
 	JWTSecret       string        // signing key for access tokens
 	JWTTTL          time.Duration // access-token lifetime
 	RefreshTTL      time.Duration // refresh-token lifetime
@@ -53,6 +54,7 @@ func Load() (Config, error) {
 		Env:             p.str("APP_ENV", "development"),
 		HTTPAddr:        p.str("HTTP_ADDR", ":8080"),
 		DatabaseURL:     p.require("DATABASE_URL"),
+		RedisURL:        p.str("REDIS_URL", ""),
 		JWTSecret:       p.require("JWT_SECRET"),
 		JWTTTL:          p.duration("JWT_TTL", 24*time.Hour),
 		RefreshTTL:      p.duration("REFRESH_TTL", 30*24*time.Hour),

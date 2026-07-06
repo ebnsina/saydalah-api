@@ -8,9 +8,11 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/ebnsina/saydalah-api/internal/auth"
 	"github.com/ebnsina/saydalah-api/internal/branch"
+	"github.com/ebnsina/saydalah-api/internal/cache"
 	"github.com/ebnsina/saydalah-api/internal/catalog"
 	"github.com/ebnsina/saydalah-api/internal/config"
 	"github.com/ebnsina/saydalah-api/internal/customer"
@@ -32,13 +34,13 @@ import (
 // handler) and mounts its routes. This is the single wiring seam: dependencies
 // are built here and flow in one direction. Public routes (login) sit outside
 // the auth gate; everything else runs behind Authenticate.
-func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager, cfg config.Config) {
+func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager, cfg config.Config, rdb *redis.Client) {
 	api := srv.API()
 
 	authMod := auth.New(st, tm, cfg.RefreshTTL)
 	// Login gets a stricter, dedicated rate limit (on top of the global one) to
 	// blunt credential brute-forcing; refresh/logout are not throttled by it.
-	authMod.MountPublic(api, middleware.RateLimit(cfg.LoginRateRPS, cfg.LoginRateBurst))
+	authMod.MountPublic(api, middleware.RateLimit(rdb, "rl:login", cfg.LoginRateRPS, cfg.LoginRateBurst))
 
 	api.Group(func(r chi.Router) {
 		r.Use(middleware.Authenticate(tm))
@@ -63,7 +65,7 @@ func registerModules(srv *server.Server, st *store.Store, tm *auth.TokenManager,
 
 		customer.New(st).Mount(r)
 		prescription.New(st, salesMod.Service()).Mount(r)
-		reporting.New(st).Mount(r)
+		reporting.New(st, cache.New(rdb)).Mount(r)
 	})
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/ebnsina/saydalah-api/internal/config"
 	"github.com/ebnsina/saydalah-api/internal/httpx"
@@ -28,7 +29,7 @@ type Server struct {
 
 // New builds the router with global middleware and health endpoints. Call API()
 // to mount module routes, then Handler() to obtain the http.Handler to serve.
-func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) *Server {
+func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool, rdb *redis.Client) *Server {
 	mux := chi.NewRouter()
 
 	mux.Use(middleware.RequestID)
@@ -43,7 +44,7 @@ func New(cfg config.Config, logger *slog.Logger, pool *pgxpool.Pool) *Server {
 		MaxAge:           300,
 	}))
 	// Global per-IP rate limit (after CORS so preflight is not counted).
-	mux.Use(middleware.RateLimit(cfg.RateLimitRPS, cfg.RateLimitBurst))
+	mux.Use(middleware.RateLimit(rdb, "rl:global", cfg.RateLimitRPS, cfg.RateLimitBurst))
 
 	// Consistent JSON responses for unmatched routes/methods.
 	mux.NotFound(func(w http.ResponseWriter, r *http.Request) {

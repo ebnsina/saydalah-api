@@ -14,7 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/redis/go-redis/v9"
+
 	"github.com/ebnsina/saydalah-api/internal/auth"
+	"github.com/ebnsina/saydalah-api/internal/cache"
 	"github.com/ebnsina/saydalah-api/internal/config"
 	"github.com/ebnsina/saydalah-api/internal/database"
 	"github.com/ebnsina/saydalah-api/internal/migrations"
@@ -56,12 +59,26 @@ func run() error {
 	st := store.NewStore(pool)
 	tm := auth.NewTokenManager(cfg.JWTSecret, cfg.JWTTTL)
 
+	// Redis is optional. When configured it backs shared (cross-instance) rate
+	// limiting and the report cache; unreachable Redis is logged and the API
+	// runs degraded (in-memory limiter, no cache) rather than failing to start.
+	var rdb *redis.Client
+	if cfg.RedisURL != "" {
+		if rdb, err = cache.Connect(ctx, cfg.RedisURL); err != nil {
+			logger.Warn("redis unavailable — running without shared cache/rate-limit", "error", err)
+			rdb = nil
+		} else {
+			logger.Info("redis connected")
+			defer rdb.Close()
+		}
+	}
+
 	if err := bootstrapAdmin(ctx, st, cfg, logger); err != nil {
 		return err
 	}
 
-	srv := server.New(cfg, logger, pool)
-	registerModules(srv, st, tm, cfg)
+	srv := server.New(cfg, logger, pool, rdb)
+	registerModules(srv, st, tm, cfg, rdb)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

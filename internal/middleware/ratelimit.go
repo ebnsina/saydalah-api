@@ -3,10 +3,13 @@ package middleware
 import (
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/go-redis/redis_rate/v10"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
 
 	"github.com/ebnsina/saydalah-api/internal/httpx"
@@ -28,9 +31,15 @@ type rateLimiter struct {
 
 // RateLimit returns middleware that limits each client IP to rps requests per
 // second with the given burst. Over-limit requests get 429 with Retry-After.
-// A background sweeper evicts clients idle for over three minutes so the map
-// does not grow unbounded.
-func RateLimit(rps float64, burst int) func(http.Handler) http.Handler {
+//
+// When rdb is non-nil the counter lives in Redis, so the limit is shared across
+// every API instance (prefix namespaces the two limiters). When rdb is nil it
+// falls back to a per-process in-memory bucket, with a background sweeper that
+// evicts idle clients so the map does not grow unbounded.
+func RateLimit(rdb *redis.Client, prefix string, rps float64, burst int) func(http.Handler) http.Handler {
+	if rdb != nil {
+		return redisLimit(rdb, prefix, rps, burst)
+	}
 	rl := &rateLimiter{
 		visitors: make(map[string]*visitor),
 		rps:      rate.Limit(rps),
@@ -38,6 +47,38 @@ func RateLimit(rps float64, burst int) func(http.Handler) http.Handler {
 	}
 	go rl.sweep()
 	return rl.handle
+}
+
+// redisLimit implements the same limit backed by Redis (shared across instances).
+func redisLimit(rdb *redis.Client, prefix string, rps float64, burst int) func(http.Handler) http.Handler {
+	limiter := redis_rate.NewLimiter(rdb)
+	lim := limitFrom(rps, burst)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			res, err := limiter.Allow(r.Context(), prefix+":"+clientIP(r), lim)
+			if err != nil {
+				// Fail open: a Redis blip must not take the API down.
+				next.ServeHTTP(w, r)
+				return
+			}
+			if res.Allowed == 0 {
+				w.Header().Set("Retry-After", strconv.Itoa(int(res.RetryAfter.Seconds())+1))
+				httpx.Error(w, r, httpx.NewError(http.StatusTooManyRequests, "rate limit exceeded"))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// limitFrom converts rps + burst into a redis_rate.Limit, handling sub-1 rps
+// (e.g. the login limiter) by widening the period instead of rounding to zero.
+func limitFrom(rps float64, burst int) redis_rate.Limit {
+	if rps >= 1 {
+		return redis_rate.Limit{Rate: int(rps), Burst: burst, Period: time.Second}
+	}
+	period := time.Duration(float64(time.Second) / rps)
+	return redis_rate.Limit{Rate: 1, Burst: burst, Period: period}
 }
 
 func (rl *rateLimiter) limiterFor(ip string) *rate.Limiter {
